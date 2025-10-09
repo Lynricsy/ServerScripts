@@ -58,7 +58,7 @@ install_xanmod() {
   
   # 步骤2: 添加XanMod GPG密钥
   log_step "添加XanMod GPG密钥..."
-  if wget -qO - https://dl.xanmod.org/archive.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes; then
+  if wget -qO - https://gitlab.com/afrd.gpg | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes; then
       log_success "GPG密钥添加成功！"
   else
       log_error "GPG密钥添加失败！"
