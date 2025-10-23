@@ -20,6 +20,22 @@ log_step() {
     echo -e "\033[1;35m[STEP]\033[0m $1"
 }
 
+# 临时目录路径
+TEMP_DIR="/root/.ImageMakerTemp"
+
+# 清理函数
+cleanup() {
+    if [ -d "${TEMP_DIR}" ]; then
+        echo ""
+        log_info "🧹 正在清理临时目录..."
+        rm -rf "${TEMP_DIR}"
+        log_success "🧹 临时目录清理完成！"
+    fi
+}
+
+# 设置退出时自动清理（无论成功还是失败）
+trap cleanup EXIT
+
 echo "================================================"
 log_info "🎉 开始构建 Debian 定制镜像 🎉"
 echo "================================================"
@@ -130,9 +146,9 @@ log_info "💾 定制后镜像体积: ${CUSTOMIZE_SIZE}"
 echo ""
 
 log_step "🗜️ 正在压缩镜像以减小体积..."
-log_info "  创建临时目录: /root/.ImageMakerTemp"
-mkdir -p /root/.ImageMakerTemp
-TMPDIR=/root/.ImageMakerTemp virt-sparsify --compress debian-13-generic-amd64.qcow2 debian-13-generic-amd64-NEXT.qcow2
+log_info "  创建临时目录: ${TEMP_DIR}"
+mkdir -p "${TEMP_DIR}"
+TMPDIR="${TEMP_DIR}" virt-sparsify --compress debian-13-generic-amd64.qcow2 debian-13-generic-amd64-NEXT.qcow2
 log_success "🗜️ 镜像压缩完成！"
 FINAL_SIZE=$(du -h debian-13-generic-amd64-NEXT.qcow2 | cut -f1)
 log_info "💾 压缩后镜像体积: ${FINAL_SIZE}"
