@@ -149,7 +149,7 @@ ALIAS_EOF' \
   --run-command "curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/motd -o /etc/motd && chmod 644 /etc/motd" \
   --run-command "curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/p10k.zsh -o /root/.p10k.zsh && chmod 644 /root/.p10k.zsh" \
   --run-command "export HOME=/root && git config --global user.name 'Lynricsy' && git config --global user.email 'im@ling.plus' && git config --global init.defaultBranch main && git config --global color.ui auto && git config --global core.editor nano && git config --global diff.algorithm histogram && git config --global merge.conflictstyle diff3 && git config --global pull.rebase false && git config --global alias.st status && git config --global alias.co checkout && git config --global alias.br branch && git config --global alias.ci commit && git config --global alias.unstage 'reset HEAD --' && git config --global alias.last 'log -1 HEAD' && git config --global alias.lg \"log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit\" && git config --global alias.contributors 'shortlog -sn'" \
-  --run-command "pacman -Scc --noconfirm" \
+  --run-command "yes | pacman -Scc" \
   --append-line "/etc/systemd/timesyncd.conf:NTP=time.apple.com time.windows.com" \
   --delete "/var/log/*.log" \
   --delete "/var/cache/pacman/pkg/*" \
