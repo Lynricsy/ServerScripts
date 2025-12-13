@@ -53,7 +53,13 @@ DOWNLOAD_SIZE=$(du -h Arch-Linux-x86_64-cloudimg.qcow2 | cut -f1)
 log_info "💾 下载后镜像体积: ${DOWNLOAD_SIZE}"
 echo ""
 
-log_step "🛠️ 开始定制镜像（这可能需要一些时间）..."
+log_step "📐 扩展镜像磁盘空间（Arch 云镜像默认太小）..."
+# Arch Linux 云镜像默认只有约 500MB，安装软件包需要更多空间
+qemu-img resize Arch-Linux-x86_64-cloudimg.qcow2 +4G
+log_success "📐 镜像已扩展 4GB！"
+echo ""
+
+log_step "🛠️ 开始定制镜像（这可能需要一些时间）...
 log_info "  🌍 配置时区为 Asia/Hong_Kong"
 log_info "  ⚙️  配置 GRUB 启动器"
 log_info "  📦 安装系统软件包"
@@ -62,6 +68,13 @@ log_info "  🐳 安装 Docker 及相关组件"
 log_info "  💻 配置 Zsh + Powerlevel10k + 现代化CLI工具"
 log_info "  📝 配置 Git 全局设置"
 log_info "  🧹 清理缓存和日志文件"
+echo ""
+
+# 先扩展文件系统以使用新增的磁盘空间
+log_step "📐 扩展镜像内部文件系统..."
+virt-resize --expand /dev/sda3 Arch-Linux-x86_64-cloudimg.qcow2 Arch-Linux-x86_64-cloudimg-resized.qcow2
+mv Arch-Linux-x86_64-cloudimg-resized.qcow2 Arch-Linux-x86_64-cloudimg.qcow2
+log_success "📐 文件系统扩展完成！"
 echo ""
 
 virt-customize -a Arch-Linux-x86_64-cloudimg.qcow2 \
