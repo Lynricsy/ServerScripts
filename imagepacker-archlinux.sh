@@ -3,6 +3,11 @@ set -e  # 遇到错误立即退出
 set -u  # 使用未定义变量时退出
 set -o pipefail  # 管道命令失败时退出
 
+# Arch Linux 定制镜像构建脚本
+# 创建时间: 2025-12-13 +08:00
+# 创建者: Mare Ashley Pecker (mare@sent.com)
+# 基础镜像: fastly.mirror.pkgbuild.com/images/latest/Arch-Linux-x86_64-cloudimg.qcow2
+
 # 日志函数
 log_info() {
     echo -e "\033[1;36m[INFO]\033[0m $1"
@@ -37,14 +42,14 @@ cleanup() {
 trap cleanup EXIT
 
 echo "================================================"
-log_info "🎉 开始构建 openSUSE Tumbleweed 定制镜像 🎉"
+log_info "🎉 开始构建 Arch Linux 定制镜像 🎉"
 echo "================================================"
 echo ""
 
-log_step "📥 正在下载 openSUSE Tumbleweed 基础镜像..."
-wget https://download.opensuse.org/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2
+log_step "📥 正在下载 Arch Linux Cloud 基础镜像..."
+wget https://fastly.mirror.pkgbuild.com/images/latest/Arch-Linux-x86_64-cloudimg.qcow2
 log_success "📥 镜像下载完成！"
-DOWNLOAD_SIZE=$(du -h openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 | cut -f1)
+DOWNLOAD_SIZE=$(du -h Arch-Linux-x86_64-cloudimg.qcow2 | cut -f1)
 log_info "💾 下载后镜像体积: ${DOWNLOAD_SIZE}"
 echo ""
 
@@ -59,20 +64,21 @@ log_info "  📝 配置 Git 全局设置"
 log_info "  🧹 清理缓存和日志文件"
 echo ""
 
-virt-customize -a openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 \
+virt-customize -a Arch-Linux-x86_64-cloudimg.qcow2 \
   --smp 2 --verbose \
   --timezone "Asia/Hong_Kong" \
   --append-line "/etc/default/grub:# disables OS prober to avoid loopback detection which breaks booting" \
   --append-line "/etc/default/grub:GRUB_DISABLE_OS_PROBER=true" \
-  --run-command "grub2-mkconfig -o /boot/grub2/grub.cfg || true" \
+  --run-command "grub-mkconfig -o /boot/grub/grub.cfg || true" \
   --run-command "systemctl enable serial-getty@ttyS1.service" \
-  --run-command "zypper --non-interactive refresh" \
-  --run-command "zypper --non-interactive update" \
-  --run-command "zypper --non-interactive install sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind-utils zstd lsof p7zip git tree zsh fastfetch gpg2 eza bat fd ripgrep btop" \
+  --run-command "pacman-key --init" \
+  --run-command "pacman-key --populate archlinux" \
+  --run-command "pacman -Syu --noconfirm" \
+  --run-command "pacman -S --noconfirm --needed sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind net-tools zstd lsof p7zip git tree zsh fastfetch gnupg eza bat fd ripgrep btop" \
   --run-command "echo -e 'tcp_bbr\nsch_fq_pie' > /etc/modules-load.d/network-tuning.conf" \
   --run-command "echo 'net.core.default_qdisc=fq_pie' > /etc/sysctl.d/99-network-tuning.conf" \
   --run-command "echo 'net.ipv4.tcp_congestion_control=bbr' >> /etc/sysctl.d/99-network-tuning.conf" \
-  --run-command "zypper --non-interactive install docker docker-compose docker-buildx" \
+  --run-command "pacman -S --noconfirm --needed docker docker-compose docker-buildx" \
   --run-command "systemctl enable docker.service" \
   --run-command "usermod -aG docker root" \
   --run-command "mkdir -p /etc/docker" \
@@ -127,29 +133,29 @@ ALIAS_EOF' \
   --run-command "curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/motd -o /etc/motd && chmod 644 /etc/motd" \
   --run-command "curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/p10k.zsh -o /root/.p10k.zsh && chmod 644 /root/.p10k.zsh" \
   --run-command "export HOME=/root && git config --global user.name 'Lynricsy' && git config --global user.email 'im@ling.plus' && git config --global init.defaultBranch main && git config --global color.ui auto && git config --global core.editor nano && git config --global diff.algorithm histogram && git config --global merge.conflictstyle diff3 && git config --global pull.rebase false && git config --global alias.st status && git config --global alias.co checkout && git config --global alias.br branch && git config --global alias.ci commit && git config --global alias.unstage 'reset HEAD --' && git config --global alias.last 'log -1 HEAD' && git config --global alias.lg \"log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit\" && git config --global alias.contributors 'shortlog -sn'" \
-  --run-command "zypper --non-interactive clean --all" \
+  --run-command "pacman -Scc --noconfirm" \
   --append-line "/etc/systemd/timesyncd.conf:NTP=time.apple.com time.windows.com" \
   --delete "/var/log/*.log" \
-  --delete "/var/cache/zypp/*" \
+  --delete "/var/cache/pacman/pkg/*" \
   --run-command "rm -f /etc/machine-id"
 
 log_success "🛠️ 镜像定制完成！"
-CUSTOMIZE_SIZE=$(du -h openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 | cut -f1)
+CUSTOMIZE_SIZE=$(du -h Arch-Linux-x86_64-cloudimg.qcow2 | cut -f1)
 log_info "💾 定制后镜像体积: ${CUSTOMIZE_SIZE}"
 echo ""
 
 log_step "🗜️ 正在压缩镜像以减小体积..."
 log_info "  创建临时目录: ${TEMP_DIR}"
 mkdir -p "${TEMP_DIR}"
-TMPDIR="${TEMP_DIR}" virt-sparsify --compress openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 openSUSE-Tumbleweed-NEXT.qcow2
+TMPDIR="${TEMP_DIR}" virt-sparsify --compress Arch-Linux-x86_64-cloudimg.qcow2 Arch-Linux-NEXT.qcow2
 log_success "🗜️ 镜像压缩完成！"
-FINAL_SIZE=$(du -h openSUSE-Tumbleweed-NEXT.qcow2 | cut -f1)
+FINAL_SIZE=$(du -h Arch-Linux-NEXT.qcow2 | cut -f1)
 log_info "💾 压缩后镜像体积: ${FINAL_SIZE}"
 echo ""
 
 echo "================================================"
 log_success "✅ 镜像构建全部完成！✨"
-log_info "📁 输出文件: openSUSE-Tumbleweed-NEXT.qcow2"
+log_info "📁 输出文件: Arch-Linux-NEXT.qcow2"
 echo ""
 log_info "📊 体积变化统计："
 log_info "  📥 初始下载: ${DOWNLOAD_SIZE}"
