@@ -142,7 +142,7 @@ ALIAS_EOF' \
   --delete "/var/log/*.log" \
   --delete "/var/lib/apt/lists/*" \
   --delete "/var/cache/apt/*" \
-  --truncate "/etc/machine-id"
+  --run-command "rm -f /etc/machine-id; touch /etc/machine-id"
 
 log_success "🛠️ 镜像定制完成！"
 CUSTOMIZE_SIZE=$(du -h debian-13-generic-amd64.qcow2 | cut -f1)
