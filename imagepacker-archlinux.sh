@@ -97,7 +97,9 @@ virt-customize -a Arch-Linux-x86_64-cloudimg.qcow2 \
 Server = https://mirror.xtom.com.hk/archlinux/\$repo/os/\$arch
 Server = https://mirror-hk.koddos.net/archlinux/\$repo/os/\$arch
 MIRROREOF" \
+  --run-command "printf '\\n# Arch Linux CN Repository\\n[archlinuxcn]\\nServer = https://mirror.xtom.com.hk/archlinuxcn/\$arch\\n' >> /etc/pacman.conf" \
   --run-command "pacman -Syu --noconfirm" \
+  --run-command "pacman -S --noconfirm --needed archlinuxcn-keyring" \
   --run-command "sed -i 's/^#zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen" \
   --run-command "sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen" \
   --run-command "locale-gen" \
