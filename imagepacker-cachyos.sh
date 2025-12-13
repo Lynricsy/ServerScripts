@@ -211,7 +211,7 @@ ALIAS_EOF" \
   --run-command "HOME=/root git config --global alias.contributors 'shortlog -sn'" \
   --run-command "mkdir -p /root/.ssh && chmod 700 /root/.ssh" \
   --run-command "chown -R root:root /root/.ssh" \
-  --run-command "yes | pacman -Scc" \
+  --run-command "rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/*" \
   --append-line "/etc/systemd/timesyncd.conf:NTP=time.apple.com time.windows.com" \
   --delete "/var/log/*.log" \
   --delete "/var/cache/pacman/pkg/*" \
