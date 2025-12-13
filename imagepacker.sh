@@ -104,7 +104,7 @@ virt-customize -a debian-13-generic-amd64.qcow2 \
 EOF" \
   --run-command "export HOME=/root && curl -fsSL https://raw.githubusercontent.com/zimfw/install/master/install.zsh | zsh" \
   --run-command "grep -qx 'zmodule romkatv/powerlevel10k --use degit' /root/.zimrc || echo 'zmodule romkatv/powerlevel10k --use degit' >> /root/.zimrc" \
-  --run-command "export HOME=/root && /root/.zim/bin/zimfw install" \
+  --run-command "export HOME=/root && zsh /root/.zim/zimfw.zsh install" \
   --run-command "touch /root/.zshrc" \
   --run-command "grep -qx 'cat /etc/motd' /root/.zshrc || sed -i '1i cat /etc/motd' /root/.zshrc" \
   --run-command "grep -qx 'fastfetch' /root/.zshrc || sed -i '/^cat \\/etc\\/motd$/a fastfetch' /root/.zshrc" \
