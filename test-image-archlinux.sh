@@ -825,13 +825,19 @@ assert_success "getent hosts archlinux.org" "DNS解析 archlinux.org"
 
 log_section "14.6 Locale 环境"
 assert_success "locale" "locale命令可用"
-if locale -a 2>/dev/null | grep -Eq "C\\.UTF-8|en_US\\.UTF-8|zh_CN\\.UTF-8"; then
+# locale -a 输出格式可能是 en_US.utf8 或 en_US.UTF-8，使用不区分大小写的匹配
+if locale -a 2>/dev/null | grep -Eiq "C\\.UTF-?8|en_US\\.UTF-?8|zh_CN\\.UTF-?8"; then
     log_success "系统存在常见UTF-8本地化"
 else
     log_warning "未发现常见UTF-8本地化（C.UTF-8/en_US.UTF-8/zh_CN.UTF-8）"
 fi
 if [ -n "${LANG:-}" ]; then
-    log_info "当前LANG: $LANG"
+    # 检查 LANG 是否为 UTF-8 编码
+    if echo "$LANG" | grep -iq "utf-\?8"; then
+        log_success "当前LANG: $LANG (UTF-8)"
+    else
+        log_info "当前LANG: $LANG"
+    fi
 else
     log_warning "环境变量 LANG 未设置"
 fi
@@ -919,19 +925,28 @@ if [ -n "$SUDOERS_PERM" ]; then
     fi
 fi
 
-log_section "15.4 cgroup 与熵池"
+log_section "15.4 cgroup 与随机数生成器"
 if [ -f /sys/fs/cgroup/cgroup.controllers ]; then
     log_success "cgroup v2 已启用"
 else
     log_warning "cgroup v2 未检测到（可能是预期）"
 fi
 
+# 现代内核 (5.6+) 使用 CRNG，entropy_avail 固定为 256，这是正常设计
+# 不再需要依赖传统熵池，内核会自动处理加密安全的随机数生成
 ENTROPY=$(cat /proc/sys/kernel/random/entropy_avail 2>/dev/null || echo 0)
-log_info "当前熵池: ${ENTROPY}"
-if [ "${ENTROPY}" -lt 512 ]; then
-    log_warning "熵值偏低，可能影响TLS性能"
+KERNEL_VER=$(uname -r | cut -d. -f1-2)
+if [ "$(printf '%s\n' "5.6" "$KERNEL_VER" | sort -V | head -n1)" = "5.6" ]; then
+    # 内核 >= 5.6，使用 CRNG，entropy_avail 固定为 256 是正常的
+    log_success "内核 ${KERNEL_VER} 使用 CRNG (熵值: ${ENTROPY})"
 else
-    log_success "熵值充足"
+    # 旧内核，传统熵池检测
+    log_info "当前熵池: ${ENTROPY}"
+    if [ "${ENTROPY}" -lt 256 ]; then
+        log_warning "熵值偏低，可能影响TLS性能"
+    else
+        log_success "熵值充足"
+    fi
 fi
 
 log_section "15.5 sudo 与 SSH 基本可用性"
