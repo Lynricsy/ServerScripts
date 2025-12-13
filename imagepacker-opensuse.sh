@@ -69,7 +69,7 @@ virt-customize -a openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 \
   --run-command "zypper --non-interactive refresh" \
   --run-command "zypper --non-interactive update" \
   --run-command "zypper --non-interactive install sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind-utils zstd lsof p7zip git tree zsh fastfetch gpg2 eza bat fd ripgrep btop" \
-  --run-command "echo -e 'tcp_bbr\nsch_fq_pie' > /etc/modules-load.d/network-tuning.conf" \
+  --run-command "printf 'tcp_bbr\nsch_fq_pie\n' > /etc/modules-load.d/network-tuning.conf" \
   --run-command "echo 'net.core.default_qdisc=fq_pie' > /etc/sysctl.d/99-network-tuning.conf" \
   --run-command "echo 'net.ipv4.tcp_congestion_control=bbr' >> /etc/sysctl.d/99-network-tuning.conf" \
   --run-command "zypper --non-interactive install docker docker-compose docker-buildx" \
