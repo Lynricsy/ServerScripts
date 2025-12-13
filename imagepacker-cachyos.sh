@@ -110,14 +110,16 @@ MIRROREOF" \
   --run-command "pacman-key --lsign-key F3B607488DB35A47" \
   --run-command "pacman -U --noconfirm 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-keyring-20240331-1-any.pkg.tar.zst' 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-mirrorlist-22-1-any.pkg.tar.zst' 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-v3-mirrorlist-22-1-any.pkg.tar.zst' 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-v4-mirrorlist-22-1-any.pkg.tar.zst'" \
   --run-command "cat > /etc/pacman.d/cachyos-mirrorlist <<'MIRROREOF'
-# CachyOS mirrors
-Server = https://mirror.funami.tech/cachyos/repo/\$arch/\$repo
+# CachyOS mirrors (x86_64)
+Server = https://mirror.funami.tech/cachy/repo/\$arch/\$repo
 Server = https://cdn77.cachyos.org/repo/\$arch/\$repo
+Server = https://mirror.cachyos.org/repo/\$arch/\$repo
 MIRROREOF" \
   --run-command "cat > /etc/pacman.d/cachyos-v4-mirrorlist <<'MIRROREOF'
-# CachyOS v4 mirrors
-Server = https://mirror.funami.tech/cachyos/repo/\$arch_v4/\$repo
-Server = https://cdn77.cachyos.org/repo/\$arch_v4/\$repo
+# CachyOS v4 mirrors (x86_64_v4)
+Server = https://mirror.funami.tech/cachy/repo/x86_64_v4/\$repo
+Server = https://cdn77.cachyos.org/repo/x86_64_v4/\$repo
+Server = https://mirror.cachyos.org/repo/x86_64_v4/\$repo
 MIRROREOF" \
   --run-command "sed -i 's/^Architecture = .*/Architecture = x86_64 x86_64_v4/' /etc/pacman.conf" \
   --run-command "sed -i '/^\\[core\\]/i # CachyOS Repositories (x86-64-v4 optimized)\\n[cachyos-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-core-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-extra-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos]\\nInclude = /etc/pacman.d/cachyos-mirrorlist\\n' /etc/pacman.conf" \
