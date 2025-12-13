@@ -59,7 +59,7 @@ qemu-img resize Arch-Linux-x86_64-cloudimg.qcow2 +4G
 log_success "📐 镜像已扩展 4GB！"
 echo ""
 
-log_step "🛠️ 开始定制镜像（这可能需要一些时间）...
+log_step "🛠️ 开始定制镜像（这可能需要一些时间）..."
 log_info "  🌍 配置时区为 Asia/Hong_Kong"
 log_info "  ⚙️  配置 GRUB 启动器"
 log_info "  📦 安装系统软件包"
