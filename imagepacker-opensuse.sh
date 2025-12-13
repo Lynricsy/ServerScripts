@@ -55,6 +55,7 @@ echo ""
 
 log_step "🛠️ 开始定制镜像（这可能需要一些时间）..."
 log_info "  🌍 配置时区为 Asia/Hong_Kong"
+log_info "  🌐 配置 Locale 为 zh_CN.UTF-8"
 log_info "  ⚙️  配置 GRUB 启动器"
 log_info "  📦 安装系统软件包"
 log_info "  🌐 配置网络优化（BBR + fq_pie）"
@@ -76,6 +77,8 @@ virt-customize -a openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 \
   --run-command "systemctl enable serial-getty@ttyS1.service" \
   --run-command "zypper --non-interactive refresh" \
   --run-command "zypper --non-interactive update" \
+  --run-command "zypper --non-interactive install glibc-locale glibc-lang" \
+  --run-command "echo 'LANG=zh_CN.UTF-8' > /etc/locale.conf" \
   --run-command "zypper --non-interactive install sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind-utils zstd lsof p7zip git tree zsh fastfetch gpg2 eza bat fd ripgrep btop micro" \
   --run-command "mkdir -p /etc/sysctl.d" \
   --run-command "printf 'tcp_bbr\nsch_fq_pie\n' > /etc/modules-load.d/network-tuning.conf" \

@@ -70,6 +70,7 @@ echo ""
 
 log_step "🛠️ 开始定制镜像（这可能需要一些时间）..."
 log_info "  🌍 配置时区为 Asia/Hong_Kong"
+log_info "  🌐 配置 Locale 为 zh_CN.UTF-8"
 log_info "  ⚙️  配置 GRUB 启动器"
 log_info "  📦 安装系统软件包"
 log_info "  🌐 配置网络优化（BBR + fq_pie）"
@@ -92,6 +93,10 @@ virt-customize -a Arch-Linux-x86_64-cloudimg.qcow2 \
   --run-command "pacman-key --init" \
   --run-command "pacman-key --populate archlinux" \
   --run-command "pacman -Syu --noconfirm" \
+  --run-command "sed -i 's/^#zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen" \
+  --run-command "sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen" \
+  --run-command "locale-gen" \
+  --run-command "echo 'LANG=zh_CN.UTF-8' > /etc/locale.conf" \
   --run-command "pacman -S --noconfirm --needed sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind zstd lsof p7zip git tree zsh fastfetch gnupg eza bat fd ripgrep btop micro" \
   --run-command "mkdir -p /etc/sysctl.d" \
   --run-command "printf 'tcp_bbr\nsch_fq_pie\n' > /etc/modules-load.d/network-tuning.conf" \
