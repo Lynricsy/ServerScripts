@@ -215,7 +215,7 @@ ALIAS_EOF" \
   --append-line "/etc/systemd/timesyncd.conf:NTP=time.apple.com time.windows.com" \
   --delete "/var/log/*.log" \
   --delete "/var/cache/pacman/pkg/*" \
-  --write "/etc/machine-id:"
+  --delete "/etc/machine-id"
 
 log_success "🛠️ 镜像定制完成！"
 CUSTOMIZE_SIZE=$(du -h Arch-Linux-x86_64-cloudimg.qcow2 | cut -f1)
