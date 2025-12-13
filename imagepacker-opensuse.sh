@@ -97,12 +97,31 @@ EOF" \
   --run-command "touch /root/.zshrc" \
   --run-command "grep -qx 'cat /etc/motd' /root/.zshrc || sed -i '1i cat /etc/motd' /root/.zshrc" \
   --run-command "grep -qx 'fastfetch' /root/.zshrc || sed -i '/^cat \\/etc\\/motd$/a fastfetch' /root/.zshrc" \
-  --run-command "cat > /tmp/p10k_instant_block <<'EOF'\n# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.\n# Initialization code that may require console input (password prompts, [y/n]\n# confirmations, etc.) must go above this block; everything else may go below.\nif [[ -r \"${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh\" ]]; then\n  source \"${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh\"\nfi\nEOF" \
+  --run-command $'cat > /tmp/p10k_instant_block <<\'EOF\'
+# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+# Initialization code that may require console input (password prompts, [y/n]
+# confirmations, etc.) must go above this block; everything else may go below.
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+EOF' \
   --run-command "grep -q 'p10k-instant-prompt' /root/.zshrc || sed -i '/^fastfetch$/r /tmp/p10k_instant_block' /root/.zshrc" \
   --run-command "rm -f /tmp/p10k_instant_block" \
-  --run-command "grep -q 'source ~/.p10k.zsh' /root/.zshrc || printf '\\n# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.\\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\\n' >> /root/.zshrc" \
+  --run-command 'grep -q "source ~/.p10k.zsh" /root/.zshrc || printf "\n# To customize prompt, run \`p10k configure\` or edit ~/.p10k.zsh.\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\n" >> /root/.zshrc' \
   --run-command "grep -q 'p10k finalize' /root/.zshrc || echo '(( ! \${+functions[p10k]} )) || p10k finalize' >> /root/.zshrc" \
-  --run-command "cat >> /root/.zshrc << 'ALIAS_EOF'\n\n# Modern CLI tools aliases\nalias ls='eza --icons --group-directories-first'\nalias ll='eza --icons --group-directories-first -lh'\nalias la='eza --icons --group-directories-first -lah'\nalias lt='eza --icons --group-directories-first --tree'\nalias cat='bat --paging=never --style=plain'\nalias catp='bat --paging=always'\nalias find='fd'\nalias grep='rg'\nalias top='btop'\nALIAS_EOF" \
+  --run-command $'cat >> /root/.zshrc << \'ALIAS_EOF\'
+
+# Modern CLI tools aliases
+alias ls=\'eza --icons --group-directories-first\'
+alias ll=\'eza --icons --group-directories-first -lh\'
+alias la=\'eza --icons --group-directories-first -lah\'
+alias lt=\'eza --icons --group-directories-first --tree\'
+alias cat=\'bat --paging=never --style=plain\'
+alias catp=\'bat --paging=always\'
+alias find=\'fd\'
+alias grep=\'rg\'
+alias top=\'btop\'
+ALIAS_EOF' \
   --run-command "touch /root/.hushlogin" \
   --run-command "curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/motd -o /etc/motd && chmod 644 /etc/motd" \
   --run-command "curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/p10k.zsh -o /root/.p10k.zsh && chmod 644 /root/.p10k.zsh" \
@@ -152,4 +171,3 @@ log_info "  🛠️  定制后: ${CUSTOMIZE_SIZE}"
 log_info "  🗜️  最终压缩: ${FINAL_SIZE}"
 log_info "🎯 镜像已优化并ready to use！"
 echo "================================================"
-
