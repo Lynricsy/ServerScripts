@@ -100,7 +100,7 @@ virt-customize -a Arch-Linux-x86_64-cloudimg.qcow2 \
   --run-command "pacman-key --lsign-key F3B607488DB35A47" \
   --run-command "pacman -U --noconfirm 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-keyring-20240331-1-any.pkg.tar.zst' 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-mirrorlist-22-1-any.pkg.tar.zst' 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-v3-mirrorlist-22-1-any.pkg.tar.zst' 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-v4-mirrorlist-22-1-any.pkg.tar.zst'" \
   --run-command "sed -i 's/^Architecture = .*/Architecture = auto/' /etc/pacman.conf" \
-  --run-command "sed -i '/^\\[core\\]/i # CachyOS Repositories\\n[cachyos-v3]\\nInclude = /etc/pacman.d/cachyos-v3-mirrorlist\\n\\n[cachyos-core-v3]\\nInclude = /etc/pacman.d/cachyos-v3-mirrorlist\\n\\n[cachyos-extra-v3]\\nInclude = /etc/pacman.d/cachyos-v3-mirrorlist\\n\\n[cachyos]\\nInclude = /etc/pacman.d/cachyos-mirrorlist\\n' /etc/pacman.conf" \
+  --run-command "sed -i '/^\\[core\\]/i # CachyOS Repositories (x86-64-v4 optimized)\\n[cachyos-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-core-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-extra-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos]\\nInclude = /etc/pacman.d/cachyos-mirrorlist\\n' /etc/pacman.conf" \
   --run-command "pacman -Syyu --noconfirm" \
   --run-command "pacman -S --noconfirm --needed linux-cachyos linux-cachyos-headers" \
   --run-command "pacman -S --noconfirm --needed cachyos-settings scx-scheds" \
@@ -218,7 +218,7 @@ log_info "🎯 镜像已优化并ready to use！"
 echo ""
 log_info "🚀 CachyOS 特性："
 log_info "  🐧 CachyOS 优化内核 (linux-cachyos)"
-log_info "  📦 x86-64-v3 优化包仓库"
+log_info "  📦 x86-64-v4 优化包仓库 (AVX-512)"
 log_info "  ⚡ 性能提升 5%-20%"
 log_info "  🔧 包含 scx-scheds 调度器"
 echo "================================================"

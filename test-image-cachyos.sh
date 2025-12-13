@@ -394,12 +394,12 @@ assert_contains "pacman -Q linux-cachyos" "linux-cachyos" "linux-cachyos内核�
 
 log_section "5.3 CachyOS仓库配置"
 assert_file_exists "/etc/pacman.d/cachyos-mirrorlist" "CachyOS镜像列表"
-assert_file_exists "/etc/pacman.d/cachyos-v3-mirrorlist" "CachyOS v3镜像列表"
+assert_file_exists "/etc/pacman.d/cachyos-v4-mirrorlist" "CachyOS v4镜像列表"
 assert_contains "cat /etc/pacman.conf" "cachyos" "pacman.conf包含CachyOS仓库"
 
 log_section "5.4 CachyOS仓库验证"
 log_step "检查CachyOS仓库是否配置"
-if grep -q "\[cachyos\]" /etc/pacman.conf && grep -q "\[cachyos-v3\]" /etc/pacman.conf; then
+if grep -q "\[cachyos\]" /etc/pacman.conf && grep -q "\[cachyos-v4\]" /etc/pacman.conf; then
     log_success "CachyOS仓库已正确配置"
     grep -A1 "\[cachyos" /etc/pacman.conf | head -10 | tee -a "$TEST_LOG"
 else
