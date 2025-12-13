@@ -57,9 +57,12 @@ log_info "  🌐 配置网络优化（BBR + fq_pie）"
 log_info "  🐳 安装 Docker 及相关组件"
 log_info "  💻 配置 Zsh + Powerlevel10k + 现代化CLI工具"
 log_info "  📝 配置 Git 全局设置"
+log_info "  🔑 配置 SSH 公钥认证"
 log_info "  🧹 清理缓存和日志文件"
 echo ""
 
+# 注意：在 virt-customize 环境中，需要显式设置 HOME=/root 来确保
+# Zsh 和 Zim Framework 等工具正确安装到 /root 目录
 virt-customize -a debian-13-generic-amd64.qcow2 \
   --smp 2 --verbose \
   --timezone "Asia/Hong_Kong" \
@@ -69,19 +72,30 @@ virt-customize -a debian-13-generic-amd64.qcow2 \
   --run-command "systemctl enable serial-getty@ttyS1.service" \
   --run-command "sed -i 's|Types: deb deb-src|Types: deb|g' /etc/apt/sources.list.d/debian.sources" \
   --run-command "sed -i 's|generate_mirrorlists: true|generate_mirrorlists: false|g' /etc/cloud/cloud.cfg.d/01_debian_cloud.cfg" \
-  --update --install "sudo,qemu-guest-agent,spice-vdagent,bash-completion,unzip,wget,curl,axel,net-tools,iputils-ping,iputils-arping,iputils-tracepath,nano,most,screen,less,vim,bzip2,lldpd,mtr-tiny,htop,dnsutils,zstd,lsof,p7zip-full,git,tree,zsh,fastfetch,gnupg,eza,bat,fd-find,ripgrep,btop" \
+  --update --install "sudo,qemu-guest-agent,spice-vdagent,bash-completion,unzip,wget,curl,axel,net-tools,iputils-ping,iputils-arping,iputils-tracepath,nano,most,screen,less,vim,bzip2,lldpd,mtr-tiny,htop,dnsutils,zstd,lsof,psmisc,p7zip-full,git,tree,zsh,fastfetch,gnupg,eza,bat,fd-find,ripgrep,btop,jitterentropy-rngd,micro" \
   --run-command "wget -qO - https://gitlab.com/afrd.gpg | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes" \
   --run-command "echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' > /etc/apt/sources.list.d/xanmod-release.list" \
-  --run-command "apt-get update -y" \
-  --run-command "apt-get install -y linux-xanmod-x64v3" \
-  --run-command "echo 'net.core.default_qdisc=fq_pie' > /etc/sysctl.conf" \
-  --run-command "echo 'net.ipv4.tcp_congestion_control=bbr' >> /etc/sysctl.conf" \
+  --run-command "DEBIAN_FRONTEND=noninteractive apt-get update -y" \
+  --run-command "DEBIAN_FRONTEND=noninteractive apt-get install -y linux-xanmod-x64v3" \
+  --run-command "DEBIAN_FRONTEND=noninteractive apt-get remove -y --purge linux-image-*-cloud-amd64 || true" \
+  --run-command "DEBIAN_FRONTEND=noninteractive apt-get autoremove -y || true" \
+  --run-command "echo 'GRUB_DEFAULT=0' >> /etc/default/grub" \
+  --run-command "echo 'GRUB_TIMEOUT=5' >> /etc/default/grub" \
+  --run-command "echo 'GRUB_DISABLE_SUBMENU=y' >> /etc/default/grub" \
+  --run-command "update-initramfs -c -k all" \
+  --run-command "update-grub" \
+  --run-command "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=debian --no-nvram --removable || true" \
+  --run-command "mkdir -p /etc/sysctl.d" \
+  --run-command "echo 'net.core.default_qdisc=fq_pie' > /etc/sysctl.d/99-network-optimization.conf" \
+  --run-command "echo 'net.ipv4.tcp_congestion_control=bbr' >> /etc/sysctl.d/99-network-optimization.conf" \
+  --run-command "sysctl -p /etc/sysctl.d/99-network-optimization.conf || true" \
   --run-command "install -m 0755 -d /etc/apt/keyrings" \
   --run-command "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc" \
   --run-command "chmod a+r /etc/apt/keyrings/docker.asc" \
   --run-command "echo \"deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian trixie stable\" > /etc/apt/sources.list.d/docker.list" \
-  --run-command "apt-get update -y" \
-  --run-command "apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" \
+  --run-command "DEBIAN_FRONTEND=noninteractive apt-get update -y" \
+  --run-command "DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" \
+  --run-command "systemctl enable --now jitterentropy-rngd || true" \
   --run-command "systemctl enable docker.service" \
   --run-command "systemctl enable containerd.service" \
   --run-command "usermod -aG docker root" \
@@ -102,47 +116,68 @@ virt-customize -a debian-13-generic-amd64.qcow2 \
   ]
 }
 EOF" \
-  --run-command "export HOME=/root && curl -fsSL https://raw.githubusercontent.com/zimfw/install/master/install.zsh | zsh" \
+  --run-command "HOME=/root ZIM_HOME=/root/.zim curl -fsSL https://raw.githubusercontent.com/zimfw/install/master/install.zsh | HOME=/root ZIM_HOME=/root/.zim zsh -f" \
   --run-command "grep -qx 'zmodule romkatv/powerlevel10k --use degit' /root/.zimrc || echo 'zmodule romkatv/powerlevel10k --use degit' >> /root/.zimrc" \
-  --run-command "export HOME=/root && export ZIM_HOME=/root/.zim && zsh -c 'source /root/.zim/zimfw.zsh init -q && zimfw install'" \
+  --run-command "chmod +x /root/.zim/zimfw.zsh" \
+  --run-command "HOME=/root ZIM_HOME=/root/.zim zsh -f /root/.zim/zimfw.zsh install" \
   --run-command "touch /root/.zshrc" \
   --run-command "grep -qx 'cat /etc/motd' /root/.zshrc || sed -i '1i cat /etc/motd' /root/.zshrc" \
   --run-command "grep -qx 'fastfetch' /root/.zshrc || sed -i '/^cat \\/etc\\/motd$/a fastfetch' /root/.zshrc" \
-  --run-command $'cat > /tmp/p10k_instant_block <<\'EOF\'
+  --run-command "cat > /tmp/p10k_instant_block <<'P10K_EOF'
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+if [[ -r \"\${XDG_CACHE_HOME:-\$HOME/.cache}/p10k-instant-prompt-\${(%):-%n}.zsh\" ]]; then
+  source \"\${XDG_CACHE_HOME:-\$HOME/.cache}/p10k-instant-prompt-\${(%):-%n}.zsh\"
 fi
-EOF' \
+P10K_EOF" \
   --run-command "grep -q 'p10k-instant-prompt' /root/.zshrc || sed -i '/^fastfetch$/r /tmp/p10k_instant_block' /root/.zshrc" \
   --run-command "rm -f /tmp/p10k_instant_block" \
-  --run-command 'grep -q "source ~/.p10k.zsh" /root/.zshrc || printf "\n# To customize prompt, run \`p10k configure\` or edit ~/.p10k.zsh.\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\n" >> /root/.zshrc' \
+  --run-command "grep -q 'source ~/.p10k.zsh' /root/.zshrc || printf '\\n# To customize prompt, run \\x60p10k configure\\x60 or edit ~/.p10k.zsh.\\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\\n' >> /root/.zshrc" \
   --run-command "grep -q 'p10k finalize' /root/.zshrc || echo '(( ! \${+functions[p10k]} )) || p10k finalize' >> /root/.zshrc" \
-  --run-command $'cat >> /root/.zshrc << \'ALIAS_EOF\'
+  --run-command "cat >> /root/.zshrc <<'ALIAS_EOF'
 
 # Modern CLI tools aliases
-alias ls=\'eza --icons --group-directories-first\'
-alias ll=\'eza --icons --group-directories-first -lh\'
-alias la=\'eza --icons --group-directories-first -lah\'
-alias lt=\'eza --icons --group-directories-first --tree\'
-alias cat=\'bat --paging=never --style=plain\'
-alias catp=\'bat --paging=always\'
-alias find=\'fd\'
-alias grep=\'rg\'
-alias top=\'btop\'
-ALIAS_EOF' \
+alias ls='eza --icons --group-directories-first'
+alias ll='eza --icons --group-directories-first -lh'
+alias la='eza --icons --group-directories-first -lah'
+alias lt='eza --icons --group-directories-first --tree'
+alias cat='batcat --paging=never --style=plain'
+alias catp='batcat --paging=always'
+alias bat='batcat'
+alias find='fdfind'
+alias mo='micro'
+alias grep='rg'
+alias top='btop'
+ALIAS_EOF" \
   --run-command "touch /root/.hushlogin" \
   --run-command "curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/motd -o /etc/motd && chmod 644 /etc/motd" \
   --run-command "curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/p10k.zsh -o /root/.p10k.zsh && chmod 644 /root/.p10k.zsh" \
-  --run-command "export HOME=/root && git config --global user.name 'Lynricsy' && git config --global user.email 'im@ling.plus' && git config --global init.defaultBranch main && git config --global color.ui auto && git config --global core.editor nano && git config --global diff.algorithm histogram && git config --global merge.conflictstyle diff3 && git config --global pull.rebase false && git config --global alias.st status && git config --global alias.co checkout && git config --global alias.br branch && git config --global alias.ci commit && git config --global alias.unstage 'reset HEAD --' && git config --global alias.last 'log -1 HEAD' && git config --global alias.lg \"log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit\" && git config --global alias.contributors 'shortlog -sn'" \
-  --run-command "apt-get -y autoremove --purge && apt-get -y clean" \
+  --run-command "HOME=/root git config --global user.name 'Lynricsy'" \
+  --run-command "HOME=/root git config --global user.email 'im@ling.plus'" \
+  --run-command "HOME=/root git config --global init.defaultBranch main" \
+  --run-command "HOME=/root git config --global color.ui auto" \
+  --run-command "HOME=/root git config --global core.editor nano" \
+  --run-command "HOME=/root git config --global diff.algorithm histogram" \
+  --run-command "HOME=/root git config --global merge.conflictstyle diff3" \
+  --run-command "HOME=/root git config --global pull.rebase false" \
+  --run-command "HOME=/root git config --global alias.st status" \
+  --run-command "HOME=/root git config --global alias.co checkout" \
+  --run-command "HOME=/root git config --global alias.br branch" \
+  --run-command "HOME=/root git config --global alias.ci commit" \
+  --run-command "HOME=/root git config --global alias.unstage 'reset HEAD --'" \
+  --run-command "HOME=/root git config --global alias.last 'log -1 HEAD'" \
+  --run-command "HOME=/root git config --global alias.lg 'log --graph --pretty=format:%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset --abbrev-commit'" \
+  --run-command "HOME=/root git config --global alias.contributors 'shortlog -sn'" \
+  --run-command "mkdir -p /root/.ssh && chmod 700 /root/.ssh" \
+  --run-command "chown -R root:root /root/.ssh" \
+  --run-command "DEBIAN_FRONTEND=noninteractive apt-get -y autoremove --purge && DEBIAN_FRONTEND=noninteractive apt-get -y clean" \
   --append-line "/etc/systemd/timesyncd.conf:NTP=time.apple.com time.windows.com" \
   --delete "/var/log/*.log" \
   --delete "/var/lib/apt/lists/*" \
   --delete "/var/cache/apt/*" \
-  --run-command "rm -f /etc/machine-id"
+  --delete "/var/lib/dbus/machine-id" \
+  --truncate "/etc/machine-id"
 
 log_success "🛠️ 镜像定制完成！"
 CUSTOMIZE_SIZE=$(du -h debian-13-generic-amd64.qcow2 | cut -f1)

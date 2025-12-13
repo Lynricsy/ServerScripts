@@ -3,6 +3,11 @@ set -e  # 遇到错误立即退出
 set -u  # 使用未定义变量时退出
 set -o pipefail  # 管道命令失败时退出
 
+# openSUSE Tumbleweed 定制镜像构建脚本
+# 创建时间: 2025-12-13 +08:00
+# 创建者: Mare Ashley Pecker (mare@sent.com)
+# 基础镜像: download.opensuse.org/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2
+
 # 日志函数
 log_info() {
     echo -e "\033[1;36m[INFO]\033[0m $1"
@@ -56,9 +61,12 @@ log_info "  🌐 配置网络优化（BBR + fq_pie）"
 log_info "  🐳 安装 Docker 及相关组件"
 log_info "  💻 配置 Zsh + Powerlevel10k + 现代化CLI工具"
 log_info "  📝 配置 Git 全局设置"
+log_info "  🔑 配置 SSH 公钥认证"
 log_info "  🧹 清理缓存和日志文件"
 echo ""
 
+# 注意：在 virt-customize 环境中，需要显式设置 HOME=/root 来确保
+# Zsh 和 Zim Framework 等工具正确安装到 /root 目录
 virt-customize -a openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 \
   --smp 2 --verbose \
   --timezone "Asia/Hong_Kong" \
@@ -68,10 +76,12 @@ virt-customize -a openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 \
   --run-command "systemctl enable serial-getty@ttyS1.service" \
   --run-command "zypper --non-interactive refresh" \
   --run-command "zypper --non-interactive update" \
-  --run-command "zypper --non-interactive install sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind-utils zstd lsof p7zip git tree zsh fastfetch gpg2 eza bat fd ripgrep btop" \
+  --run-command "zypper --non-interactive install sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind-utils zstd lsof p7zip git tree zsh fastfetch gpg2 eza bat fd ripgrep btop micro" \
+  --run-command "mkdir -p /etc/sysctl.d" \
   --run-command "printf 'tcp_bbr\nsch_fq_pie\n' > /etc/modules-load.d/network-tuning.conf" \
-  --run-command "echo 'net.core.default_qdisc=fq_pie' > /etc/sysctl.d/99-network-tuning.conf" \
-  --run-command "echo 'net.ipv4.tcp_congestion_control=bbr' >> /etc/sysctl.d/99-network-tuning.conf" \
+  --run-command "echo 'net.core.default_qdisc=fq_pie' > /etc/sysctl.d/99-network-optimization.conf" \
+  --run-command "echo 'net.ipv4.tcp_congestion_control=bbr' >> /etc/sysctl.d/99-network-optimization.conf" \
+  --run-command "sysctl -p /etc/sysctl.d/99-network-optimization.conf || true" \
   --run-command "zypper --non-interactive install docker docker-compose docker-buildx" \
   --run-command "systemctl enable docker.service" \
   --run-command "usermod -aG docker root" \
@@ -92,46 +102,65 @@ virt-customize -a openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 \
   ]
 }
 EOF" \
-  --run-command "export HOME=/root && curl -fsSL https://raw.githubusercontent.com/zimfw/install/master/install.zsh | zsh" \
+  --run-command "HOME=/root ZIM_HOME=/root/.zim curl -fsSL https://raw.githubusercontent.com/zimfw/install/master/install.zsh | HOME=/root ZIM_HOME=/root/.zim zsh -f" \
   --run-command "grep -qx 'zmodule romkatv/powerlevel10k --use degit' /root/.zimrc || echo 'zmodule romkatv/powerlevel10k --use degit' >> /root/.zimrc" \
-  --run-command "export HOME=/root && export ZIM_HOME=/root/.zim && zsh -c 'source /root/.zim/zimfw.zsh init -q && zimfw install'" \
+  --run-command "chmod +x /root/.zim/zimfw.zsh" \
+  --run-command "HOME=/root ZIM_HOME=/root/.zim zsh -f /root/.zim/zimfw.zsh install" \
   --run-command "touch /root/.zshrc" \
   --run-command "grep -qx 'cat /etc/motd' /root/.zshrc || sed -i '1i cat /etc/motd' /root/.zshrc" \
   --run-command "grep -qx 'fastfetch' /root/.zshrc || sed -i '/^cat \\/etc\\/motd$/a fastfetch' /root/.zshrc" \
-  --run-command $'cat > /tmp/p10k_instant_block <<\'EOF\'
+  --run-command "cat > /tmp/p10k_instant_block <<'P10K_EOF'
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+if [[ -r \"\${XDG_CACHE_HOME:-\$HOME/.cache}/p10k-instant-prompt-\${(%):-%n}.zsh\" ]]; then
+  source \"\${XDG_CACHE_HOME:-\$HOME/.cache}/p10k-instant-prompt-\${(%):-%n}.zsh\"
 fi
-EOF' \
+P10K_EOF" \
   --run-command "grep -q 'p10k-instant-prompt' /root/.zshrc || sed -i '/^fastfetch$/r /tmp/p10k_instant_block' /root/.zshrc" \
   --run-command "rm -f /tmp/p10k_instant_block" \
-  --run-command 'grep -q "source ~/.p10k.zsh" /root/.zshrc || printf "\n# To customize prompt, run \`p10k configure\` or edit ~/.p10k.zsh.\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\n" >> /root/.zshrc' \
+  --run-command "grep -q 'source ~/.p10k.zsh' /root/.zshrc || printf '\\n# To customize prompt, run \\x60p10k configure\\x60 or edit ~/.p10k.zsh.\\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh\\n' >> /root/.zshrc" \
   --run-command "grep -q 'p10k finalize' /root/.zshrc || echo '(( ! \${+functions[p10k]} )) || p10k finalize' >> /root/.zshrc" \
-  --run-command $'cat >> /root/.zshrc << \'ALIAS_EOF\'
+  --run-command "cat >> /root/.zshrc <<'ALIAS_EOF'
 
 # Modern CLI tools aliases
-alias ls=\'eza --icons --group-directories-first\'
-alias ll=\'eza --icons --group-directories-first -lh\'
-alias la=\'eza --icons --group-directories-first -lah\'
-alias lt=\'eza --icons --group-directories-first --tree\'
-alias cat=\'bat --paging=never --style=plain\'
-alias catp=\'bat --paging=always\'
-alias find=\'fd\'
-alias grep=\'rg\'
-alias top=\'btop\'
-ALIAS_EOF' \
+alias ls='eza --icons --group-directories-first'
+alias ll='eza --icons --group-directories-first -lh'
+alias la='eza --icons --group-directories-first -lah'
+alias lt='eza --icons --group-directories-first --tree'
+alias cat='bat --paging=never --style=plain'
+alias catp='bat --paging=always'
+alias find='fd'
+alias mo='micro'
+alias grep='rg'
+alias top='btop'
+ALIAS_EOF" \
   --run-command "touch /root/.hushlogin" \
   --run-command "curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/motd -o /etc/motd && chmod 644 /etc/motd" \
   --run-command "curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/p10k.zsh -o /root/.p10k.zsh && chmod 644 /root/.p10k.zsh" \
-  --run-command "export HOME=/root && git config --global user.name 'Lynricsy' && git config --global user.email 'im@ling.plus' && git config --global init.defaultBranch main && git config --global color.ui auto && git config --global core.editor nano && git config --global diff.algorithm histogram && git config --global merge.conflictstyle diff3 && git config --global pull.rebase false && git config --global alias.st status && git config --global alias.co checkout && git config --global alias.br branch && git config --global alias.ci commit && git config --global alias.unstage 'reset HEAD --' && git config --global alias.last 'log -1 HEAD' && git config --global alias.lg \"log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit\" && git config --global alias.contributors 'shortlog -sn'" \
+  --run-command "HOME=/root git config --global user.name 'Lynricsy'" \
+  --run-command "HOME=/root git config --global user.email 'im@ling.plus'" \
+  --run-command "HOME=/root git config --global init.defaultBranch main" \
+  --run-command "HOME=/root git config --global color.ui auto" \
+  --run-command "HOME=/root git config --global core.editor nano" \
+  --run-command "HOME=/root git config --global diff.algorithm histogram" \
+  --run-command "HOME=/root git config --global merge.conflictstyle diff3" \
+  --run-command "HOME=/root git config --global pull.rebase false" \
+  --run-command "HOME=/root git config --global alias.st status" \
+  --run-command "HOME=/root git config --global alias.co checkout" \
+  --run-command "HOME=/root git config --global alias.br branch" \
+  --run-command "HOME=/root git config --global alias.ci commit" \
+  --run-command "HOME=/root git config --global alias.unstage 'reset HEAD --'" \
+  --run-command "HOME=/root git config --global alias.last 'log -1 HEAD'" \
+  --run-command "HOME=/root git config --global alias.lg 'log --graph --pretty=format:%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset --abbrev-commit'" \
+  --run-command "HOME=/root git config --global alias.contributors 'shortlog -sn'" \
+  --run-command "mkdir -p /root/.ssh && chmod 700 /root/.ssh" \
+  --run-command "chown -R root:root /root/.ssh" \
   --run-command "zypper --non-interactive clean --all" \
   --append-line "/etc/systemd/timesyncd.conf:NTP=time.apple.com time.windows.com" \
   --delete "/var/log/*.log" \
   --delete "/var/cache/zypp/*" \
-  --run-command "rm -f /etc/machine-id"
+  --truncate "/etc/machine-id"
 
 log_success "🛠️ 镜像定制完成！"
 CUSTOMIZE_SIZE=$(du -h openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 | cut -f1)
