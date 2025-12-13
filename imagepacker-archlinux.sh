@@ -72,7 +72,10 @@ echo ""
 
 # 先扩展文件系统以使用新增的磁盘空间
 log_step "📐 扩展镜像内部文件系统..."
+# 创建目标镜像文件（virt-resize 需要预先存在的目标文件）
+qemu-img create -f qcow2 -o preallocation=off Arch-Linux-x86_64-cloudimg-resized.qcow2 6G
 virt-resize --expand /dev/sda3 Arch-Linux-x86_64-cloudimg.qcow2 Arch-Linux-x86_64-cloudimg-resized.qcow2
+rm Arch-Linux-x86_64-cloudimg.qcow2
 mv Arch-Linux-x86_64-cloudimg-resized.qcow2 Arch-Linux-x86_64-cloudimg.qcow2
 log_success "📐 文件系统扩展完成！"
 echo ""
