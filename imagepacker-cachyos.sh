@@ -109,7 +109,7 @@ MIRROREOF" \
   --run-command "pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com" \
   --run-command "pacman-key --lsign-key F3B607488DB35A47" \
   --run-command "pacman -U --noconfirm 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-keyring-20240331-1-any.pkg.tar.zst' 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-mirrorlist-22-1-any.pkg.tar.zst' 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-v3-mirrorlist-22-1-any.pkg.tar.zst' 'https://mirror.cachyos.org/repo/x86_64/cachyos/cachyos-v4-mirrorlist-22-1-any.pkg.tar.zst'" \
-  --run-command "sed -i 's/^Architecture = .*/Architecture = auto/' /etc/pacman.conf" \
+  --run-command "sed -i 's/^Architecture = .*/Architecture = x86_64 x86_64_v4/' /etc/pacman.conf" \
   --run-command "sed -i '/^\\[core\\]/i # CachyOS Repositories (x86-64-v4 optimized)\\n[cachyos-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-core-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-extra-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos]\\nInclude = /etc/pacman.d/cachyos-mirrorlist\\n' /etc/pacman.conf" \
   --run-command "printf '\\n# Arch Linux CN Repository\\n[archlinuxcn]\\nServer = https://mirror.xtom.com.hk/archlinuxcn/\$arch\\n' >> /etc/pacman.conf" \
   --run-command "pacman -Syyu --noconfirm" \
