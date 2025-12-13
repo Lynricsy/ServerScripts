@@ -113,10 +113,11 @@ MIRROREOF" \
   --run-command "sed -i '/^\\[core\\]/i # CachyOS Repositories (x86-64-v4 optimized)\\n[cachyos-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-core-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-extra-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos]\\nInclude = /etc/pacman.d/cachyos-mirrorlist\\n' /etc/pacman.conf" \
   --run-command "printf '\\n# Arch Linux CN Repository\\n[archlinuxcn]\\nServer = https://mirror.xtom.com.hk/archlinuxcn/\$arch\\n' >> /etc/pacman.conf" \
   --run-command "pacman -Syyu --noconfirm" \
+  --run-command "if [ -f /etc/pacman.conf.pacnew ]; then cp /etc/pacman.conf /etc/pacman.conf.backup && mv /etc/pacman.conf.pacnew /etc/pacman.conf && sed -i 's/^Architecture = .*/Architecture = x86_64 x86_64_v4/' /etc/pacman.conf && sed -i '/^\\[core\\]/i # CachyOS Repositories (x86-64-v4 optimized)\\n[cachyos-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-core-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-extra-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos]\\nInclude = /etc/pacman.d/cachyos-mirrorlist\\n' /etc/pacman.conf && printf '\\n# Arch Linux CN Repository\\n[archlinuxcn]\\nServer = https://mirror.xtom.com.hk/archlinuxcn/\$arch\\n' >> /etc/pacman.conf && pacman -Sy; fi" \
   --run-command "pacman -S --noconfirm --needed archlinuxcn-keyring" \
+  --run-command "pacman -R --noconfirm linux linux-headers || true" \
   --run-command "pacman -S --noconfirm --needed linux-cachyos linux-cachyos-headers" \
   --run-command "pacman -S --noconfirm --needed cachyos-settings scx-scheds" \
-  --run-command "pacman -R --noconfirm linux linux-headers || true" \
   --run-command "grub-mkconfig -o /boot/grub/grub.cfg" \
   --run-command "pacman -S --noconfirm --needed sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind zstd lsof p7zip git tree zsh fastfetch gnupg eza bat fd ripgrep btop micro" \
   --run-command "mkdir -p /etc/sysctl.d" \
