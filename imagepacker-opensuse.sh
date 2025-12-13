@@ -130,7 +130,7 @@ ALIAS_EOF' \
   --append-line "/etc/systemd/timesyncd.conf:NTP=time.apple.com time.windows.com" \
   --delete "/var/log/*.log" \
   --delete "/var/cache/zypp/*" \
-  --truncate "/etc/machine-id"
+  --run-command "truncate -s 0 /etc/machine-id 2>/dev/null || true"
 
 log_success "🛠️ 镜像定制完成！"
 CUSTOMIZE_SIZE=$(du -h openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2 | cut -f1)
