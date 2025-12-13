@@ -96,12 +96,9 @@ virt-customize -a Arch-Linux-x86_64-cloudimg.qcow2 \
   --run-command "pacman-key --init" \
   --run-command "pacman-key --populate archlinux" \
   --run-command "cat > /etc/pacman.d/mirrorlist <<'MIRROREOF'
-# Hong Kong mirrors (fastest for HK region)
+# Hong Kong mirrors
 Server = https://mirror.xtom.com.hk/archlinux/\$repo/os/\$arch
-Server = https://asia.mirror.pkgbuild.com/\$repo/os/\$arch
-Server = https://hkg.mirror.rackspace.com/archlinux/\$repo/os/\$arch
 Server = https://mirror-hk.koddos.net/archlinux/\$repo/os/\$arch
-Server = https://arch-mirror.wtako.net/\$repo/os/\$arch
 MIRROREOF" \
   --run-command "pacman -Syu --noconfirm" \
   --run-command "sed -i 's/^#zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen" \
