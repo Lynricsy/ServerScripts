@@ -68,13 +68,13 @@ show_help() {
     -p, --parallel      并行构建多个发行版
     -v, --validate      仅验证配置，不执行构建
     -c, --clean         清理输出目录
-    --init              初始化 Packer 插件
+    --init              安装依赖并初始化 Packer 插件
 
 示例:
     $0 cachyos              # 构建 CachyOS 镜像
     $0 archlinux opensuse   # 构建 Arch Linux 和 openSUSE 镜像
     $0 -p all               # 并行构建所有镜像
-    $0 --init               # 初始化 Packer 插件
+    $0 --init               # 安装依赖并初始化 Packer 插件
     $0 -v all               # 验证所有配置
     $0 -c                   # 清理输出目录
 
@@ -117,12 +117,113 @@ check_dependencies() {
         echo ""
         log_info "请安装缺少的依赖后重试"
         log_info "Arch/CachyOS: pacman -S packer qemu-base libguestfs"
-        log_info "Debian/Ubuntu: apt install packer qemu-utils libguestfs-tools"
+        log_info "Debian/Ubuntu: $0 --init (自动安装)"
         log_info "openSUSE: zypper install packer qemu-tools guestfs-tools"
         exit 1
     fi
 
     log_success "依赖检查通过 ✓"
+}
+
+# ============================================================
+# 安装依赖 (支持多发行版)
+# ============================================================
+install_dependencies() {
+    log_step "安装依赖..."
+
+    # 检测发行版
+    local distro=""
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        distro="$ID"
+    fi
+
+    case "$distro" in
+        debian|ubuntu)
+            log_info "检测到 Debian/Ubuntu 系统"
+            install_dependencies_debian
+            ;;
+        arch|cachyos|endeavouros|manjaro)
+            log_info "检测到 Arch 系列系统"
+            install_dependencies_arch
+            ;;
+        opensuse*|suse)
+            log_info "检测到 openSUSE 系统"
+            install_dependencies_opensuse
+            ;;
+        fedora|rhel|centos|rocky|almalinux)
+            log_info "检测到 RHEL 系列系统"
+            install_dependencies_rhel
+            ;;
+        *)
+            log_error "不支持的发行版: $distro"
+            log_info "请手动安装: packer, qemu-utils/qemu-img, libguestfs-tools/guestfs-tools"
+            exit 1
+            ;;
+    esac
+
+    log_success "依赖安装完成 ✓"
+}
+
+# Debian/Ubuntu 安装
+install_dependencies_debian() {
+    # 检查是否需要安装 Packer
+    if ! command -v packer &> /dev/null; then
+        log_info "从 HashiCorp 官方源安装 Packer..."
+
+        # 添加 HashiCorp GPG key
+        if [ ! -f /usr/share/keyrings/hashicorp-archive-keyring.gpg ]; then
+            curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+        fi
+
+        # 获取 codename，如果是 testing/sid 则使用 bookworm
+        local codename
+        codename=$(lsb_release -cs 2>/dev/null || echo "bookworm")
+        # 检查 codename 是否在 HashiCorp 支持列表中
+        case "$codename" in
+            bullseye|bookworm|jammy|focal|noble)
+                # 支持的版本
+                ;;
+            *)
+                # 不支持的版本，回退到 bookworm
+                log_warning "Codename '$codename' 可能不被 HashiCorp 支持，使用 bookworm"
+                codename="bookworm"
+                ;;
+        esac
+
+        # 添加仓库
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $codename main" | \
+            sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+        sudo apt update
+    fi
+
+    # 安装所有依赖
+    sudo apt install -y packer qemu-utils libguestfs-tools
+}
+
+# Arch 系列安装
+install_dependencies_arch() {
+    sudo pacman -Syu --noconfirm
+    sudo pacman -S --noconfirm --needed packer qemu-base libguestfs
+}
+
+# openSUSE 安装
+install_dependencies_opensuse() {
+    sudo zypper --non-interactive refresh
+    sudo zypper --non-interactive install packer qemu-tools guestfs-tools
+}
+
+# RHEL 系列安装
+install_dependencies_rhel() {
+    # 添加 HashiCorp 仓库
+    if ! command -v packer &> /dev/null; then
+        log_info "从 HashiCorp 官方源安装 Packer..."
+        sudo yum install -y yum-utils
+        sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+    fi
+
+    sudo yum install -y packer qemu-img libguestfs-tools
 }
 
 # ============================================================
@@ -326,14 +427,16 @@ main() {
         exit 0
     fi
 
-    # 检查依赖
-    check_dependencies
-
-    # 执行初始化
+    # 执行初始化 (安装依赖 + 初始化插件)
     if $do_init; then
+        install_dependencies
+        check_dependencies
         init_packer
         exit 0
     fi
+
+    # 检查依赖
+    check_dependencies
 
     # 确保有发行版参数
     if [ ${#distros[@]} -eq 0 ]; then
