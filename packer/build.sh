@@ -68,7 +68,8 @@ show_help() {
     -o, --output DIR    指定输出目录 (默认: ./output)
     -p, --parallel      并行构建多个发行版
     -v, --validate      仅验证配置，不执行构建
-    -c, --clean         清理输出目录 (可指定发行版，如 -c cachyos)
+    -c, --clean         清理输出目录和 Packer 缓存 (可指定发行版)
+    --clean-cache       仅清理 Packer 缓存，不清理输出目录
     -f, --force         强制覆盖已存在的输出目录
     --init              安装依赖并初始化 Packer 插件
 
@@ -78,8 +79,9 @@ show_help() {
     $0 -p all               # 并行构建所有镜像
     $0 --init               # 安装依赖并初始化 Packer 插件
     $0 -v all               # 验证所有配置
-    $0 -c                   # 清理所有输出目录
-    $0 -c cachyos           # 只清理 CachyOS 输出目录
+    $0 -c                   # 清理输出目录和 Packer 缓存
+    $0 -c cachyos           # 只清理 CachyOS 输出目录和缓存
+    $0 --clean-cache        # 仅清理 Packer 缓存
     $0 -f cachyos           # 强制覆盖已存在的输出目录
 
 EOF
@@ -387,6 +389,44 @@ clean_output() {
 }
 
 # ============================================================
+# 清理 Packer 缓存
+# ============================================================
+clean_cache() {
+    log_step "清理 Packer 缓存..."
+
+    local cleaned=false
+
+    # 清理项目目录下的 packer_cache
+    local dirs=("cachyos" "archlinux" "opensuse")
+    for dir in "${dirs[@]}"; do
+        local cache_dir="${SCRIPT_DIR}/${dir}/packer_cache"
+        if [ -d "$cache_dir" ]; then
+            rm -rf "$cache_dir"
+            log_success "已清理: $cache_dir"
+            cleaned=true
+        fi
+    done
+
+    # 清理全局 Packer 缓存（如果存在）
+    if [ -d ~/.cache/packer ]; then
+        rm -rf ~/.cache/packer
+        log_success "已清理: ~/.cache/packer"
+        cleaned=true
+    fi
+
+    # 清理可能的 PACKER_CACHE_DIR 环境变量指定的目录
+    if [ -n "$PACKER_CACHE_DIR" ] && [ -d "$PACKER_CACHE_DIR" ]; then
+        rm -rf "$PACKER_CACHE_DIR"
+        log_success "已清理: $PACKER_CACHE_DIR"
+        cleaned=true
+    fi
+
+    if ! $cleaned; then
+        log_info "没有发现 Packer 缓存，无需清理"
+    fi
+}
+
+# ============================================================
 # 主函数
 # ============================================================
 main() {
@@ -395,6 +435,7 @@ main() {
     local validate_only=false
     local do_init=false
     local do_clean=false
+    local do_clean_cache=false
 
     # 解析参数
     while [[ $# -gt 0 ]]; do
@@ -417,6 +458,10 @@ main() {
                 ;;
             -c|--clean)
                 do_clean=true
+                shift
+                ;;
+            --clean-cache)
+                do_clean_cache=true
                 shift
                 ;;
             -f|--force)
@@ -454,6 +499,13 @@ main() {
     # 执行清理
     if $do_clean; then
         clean_output "${distros[@]}"
+        clean_cache  # -c 默认同时清理缓存
+        exit 0
+    fi
+
+    # 如果只清理缓存（没有 -c 参数）
+    if $do_clean_cache; then
+        clean_cache
         exit 0
     fi
 
