@@ -1,0 +1,31 @@
+# Serena MCP 工作目录
+.serena/
+
+# Packer 构建输出
+packer/output/
+packer/.packer.d/
+packer/**/packer_cache/
+packer/**/*.box
+
+# 临时文件
+*.tmp
+*.log
+*.swp
+*~
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# IDE 配置
+.vscode/
+.idea/
+*.sublime-*
+
+# 密钥和敏感信息
+*.key
+*.pem
+*.ppk
+*.pfx
+id_rsa*
+*.env.local
