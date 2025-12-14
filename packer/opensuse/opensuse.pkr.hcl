@@ -74,10 +74,11 @@ variable "ssh_password" {
 # 本地变量
 # ============================================================
 locals {
-  base_image_url  = "https://download.opensuse.org/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2"
-  base_image_name = "openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2"
-  output_name     = "openSUSE-Tumbleweed-NEXT.qcow2"
-  scripts_dir     = "${path.root}/../scripts"
+  base_image_url    = "https://download.opensuse.org/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2"
+  base_image_sha256 = "file:https://download.opensuse.org/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2.sha256"
+  base_image_name   = "openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2"
+  output_name       = "openSUSE-Tumbleweed-NEXT.qcow2"
+  scripts_dir       = "${path.root}/../scripts"
 
   # cloud-init 配置
   cloud_init_meta = <<-EOF
@@ -119,7 +120,7 @@ locals {
 source "qemu" "opensuse" {
   # 基础镜像
   iso_url      = local.base_image_url
-  iso_checksum = "none"
+  iso_checksum = local.base_image_sha256
   disk_image   = true
 
   # 输出配置

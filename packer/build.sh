@@ -45,6 +45,7 @@ log_step() {
 # ============================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="${SCRIPT_DIR}/output"
+FORCE_BUILD=false
 
 # ============================================================
 # 使用帮助
@@ -67,7 +68,8 @@ show_help() {
     -o, --output DIR    指定输出目录 (默认: ./output)
     -p, --parallel      并行构建多个发行版
     -v, --validate      仅验证配置，不执行构建
-    -c, --clean         清理输出目录
+    -c, --clean         清理输出目录 (可指定发行版，如 -c cachyos)
+    -f, --force         强制覆盖已存在的输出目录
     --init              安装依赖并初始化 Packer 插件
 
 示例:
@@ -76,7 +78,9 @@ show_help() {
     $0 -p all               # 并行构建所有镜像
     $0 --init               # 安装依赖并初始化 Packer 插件
     $0 -v all               # 验证所有配置
-    $0 -c                   # 清理输出目录
+    $0 -c                   # 清理所有输出目录
+    $0 -c cachyos           # 只清理 CachyOS 输出目录
+    $0 -f cachyos           # 强制覆盖已存在的输出目录
 
 EOF
 }
@@ -287,8 +291,14 @@ build_image() {
     # 创建输出目录
     mkdir -p "$output_subdir"
 
+    # 构建 packer 命令参数
+    local packer_args=(-var "output_directory=${output_subdir}")
+    if $FORCE_BUILD; then
+        packer_args+=(-force)
+    fi
+
     # 执行构建
-    (cd "$distro_dir" && packer build -var "output_directory=${output_subdir}" .)
+    (cd "$distro_dir" && packer build "${packer_args[@]}" .)
 
     if [ $? -eq 0 ]; then
         echo ""
@@ -350,13 +360,29 @@ build_parallel() {
 # 清理输出目录
 # ============================================================
 clean_output() {
+    local distros=("$@")
+
     log_step "清理输出目录..."
 
-    if [ -d "$OUTPUT_DIR" ]; then
-        rm -rf "$OUTPUT_DIR"
-        log_success "输出目录已清理: $OUTPUT_DIR"
+    # 如果指定了发行版，只清理对应的子目录
+    if [ ${#distros[@]} -gt 0 ]; then
+        for distro in "${distros[@]}"; do
+            local distro_output="${OUTPUT_DIR}/${distro}"
+            if [ -d "$distro_output" ]; then
+                rm -rf "$distro_output"
+                log_success "已清理: $distro_output"
+            else
+                log_info "目录不存在，跳过: $distro_output"
+            fi
+        done
     else
-        log_info "输出目录不存在，无需清理"
+        # 清理整个输出目录
+        if [ -d "$OUTPUT_DIR" ]; then
+            rm -rf "$OUTPUT_DIR"
+            log_success "输出目录已清理: $OUTPUT_DIR"
+        else
+            log_info "输出目录不存在，无需清理"
+        fi
     fi
 }
 
@@ -393,6 +419,10 @@ main() {
                 do_clean=true
                 shift
                 ;;
+            -f|--force)
+                FORCE_BUILD=true
+                shift
+                ;;
             --init)
                 do_init=true
                 shift
@@ -423,7 +453,7 @@ main() {
 
     # 执行清理
     if $do_clean; then
-        clean_output
+        clean_output "${distros[@]}"
         exit 0
     fi
 

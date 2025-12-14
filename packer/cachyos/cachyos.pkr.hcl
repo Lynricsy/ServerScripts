@@ -75,6 +75,7 @@ variable "ssh_password" {
 # ============================================================
 locals {
   base_image_url    = "https://fastly.mirror.pkgbuild.com/images/latest/Arch-Linux-x86_64-cloudimg.qcow2"
+  base_image_sha256 = "file:https://fastly.mirror.pkgbuild.com/images/latest/Arch-Linux-x86_64-cloudimg.qcow2.SHA256"
   base_image_name   = "Arch-Linux-x86_64-cloudimg.qcow2"
   output_name       = "CachyOS-NEXT.qcow2"
   scripts_dir       = "${path.root}/../scripts"
@@ -121,7 +122,7 @@ locals {
 source "qemu" "cachyos" {
   # 基础镜像
   iso_url      = local.base_image_url
-  iso_checksum = "none"
+  iso_checksum = local.base_image_sha256
   disk_image   = true
 
   # 输出配置
