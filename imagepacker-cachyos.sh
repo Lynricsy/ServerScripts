@@ -94,9 +94,6 @@ virt-customize -a Arch-Linux-x86_64-cloudimg.qcow2 \
   --run-command "mkdir -p /dev && ln -snf /proc/self/fd /dev/fd && ln -snf /proc/self/fd/0 /dev/stdin && ln -snf /proc/self/fd/1 /dev/stdout && ln -snf /proc/self/fd/2 /dev/stderr" \
   --run-command "grub-mkconfig -o /boot/grub/grub.cfg || true" \
   --run-command "systemctl enable serial-getty@ttyS1.service" \
-  --run-command "sed -i 's/^disable_root: true/disable_root: false/' /etc/cloud/cloud.cfg" \
-  --run-command "sed -i 's/^\\([ ]*\\)name: arch$/\\1name: root/' /etc/cloud/cloud.cfg" \
-  --run-command "sed -i 's/lock_passwd: True/lock_passwd: false/' /etc/cloud/cloud.cfg" \
   --run-command "pacman-key --init" \
   --run-command "pacman-key --populate archlinux" \
   --run-command "cat > /etc/pacman.d/mirrorlist <<'MIRROREOF'
@@ -105,6 +102,25 @@ Server = https://mirror.xtom.com.hk/archlinux/\$repo/os/\$arch
 Server = https://mirror-hk.koddos.net/archlinux/\$repo/os/\$arch
 MIRROREOF" \
   --run-command "pacman -Syu --noconfirm" \
+  --run-command "pacman -S --noconfirm --needed cloud-init" \
+  --run-command "rm -f /etc/cloud/cloud-init.disabled || true" \
+  --run-command "install -d -m 0755 /etc/cloud/cloud.cfg.d" \
+  --run-command "cat > /etc/cloud/cloud.cfg.d/99-proxmox.cfg <<'EOF'
+# Proxmox / NoCloud / ConfigDrive 兼容性增强
+# 目的：避免 datasource 探测不到导致 cloud-init 不执行，从而出现“账号/IP 都不生效”
+datasource_list: [ NoCloud, ConfigDrive, None ]
+EOF" \
+  --run-command "systemctl enable cloud-init-local.service cloud-init.service cloud-config.service cloud-final.service cloud-init.target || true" \
+  --run-command "systemctl enable systemd-networkd.service systemd-resolved.service || true" \
+  --run-command "systemctl enable sshd.service || true" \
+  --run-command "install -d -m 0755 /etc/systemd/network" \
+  --run-command "cat > /etc/systemd/network/99-fallback-dhcp.network <<'EOF'
+[Match]
+Name=en* eth* ens* enp* eno*
+
+[Network]
+DHCP=yes
+EOF" \
   --run-command "sed -i 's/^#zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen" \
   --run-command "sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen" \
   --run-command "locale-gen" \

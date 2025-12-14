@@ -18,6 +18,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # 默认配置
 IMAGE_FILE="${1:-CachyOS-NEXT.qcow2}"
+TEST_USER="cloudtest"
 TEST_PASSWORD="testpass123"
 SSH_PORT="2222"
 MEMORY="2048"
@@ -32,6 +33,7 @@ fi
 log_info "🧪 Cloud-init 本地测试工具"
 echo "========================================"
 log_info "测试镜像: $IMAGE_FILE"
+log_info "测试用户: $TEST_USER"
 log_info "测试密码: $TEST_PASSWORD"
 log_info "SSH 端口: $SSH_PORT (本地转发)"
 echo ""
@@ -52,8 +54,15 @@ EOF
 # user-data
 cat > "$CIDATA_DIR/user-data" << EOF
 #cloud-config
-password: $TEST_PASSWORD
+users:
+  - name: $TEST_USER
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [wheel]
+    shell: /bin/bash
+    lock_passwd: false
 chpasswd:
+  list: |
+    $TEST_USER:$TEST_PASSWORD
   expire: false
 ssh_pwauth: true
 disable_root: false
@@ -79,11 +88,11 @@ log_success "🚀 启动 QEMU 虚拟机测试"
 echo "========================================"
 echo ""
 log_info "📌 登录信息:"
-echo "   用户名: root"
+echo "   用户名: $TEST_USER"
 echo "   密码: $TEST_PASSWORD"
 echo ""
 log_info "📌 SSH 测试 (另开终端执行):"
-echo "   ssh -o StrictHostKeyChecking=no -p $SSH_PORT root@localhost"
+echo "   ssh -o StrictHostKeyChecking=no -p $SSH_PORT $TEST_USER@localhost"
 echo ""
 log_info "📌 退出虚拟机:"
 echo "   输入 'poweroff' 或按 Ctrl+A 然后按 X"
