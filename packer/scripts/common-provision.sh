@@ -29,17 +29,23 @@ configure_network_optimization() {
 
     sudo mkdir -p /etc/sysctl.d /etc/modules-load.d
 
-    # 加载内核模块
+    # 配置内核模块自动加载（首次启动时生效）
     echo -e "tcp_bbr\nsch_fq_pie" | sudo tee /etc/modules-load.d/network-tuning.conf > /dev/null
 
-    # sysctl 配置
+    # sysctl 配置（首次启动时生效）
     cat <<'EOF' | sudo tee /etc/sysctl.d/99-network-optimization.conf > /dev/null
 net.core.default_qdisc=fq_pie
 net.ipv4.tcp_congestion_control=bbr
 EOF
 
-    sudo sysctl -p /etc/sysctl.d/99-network-optimization.conf || true
-    log_success "🌐 网络优化配置完成"
+    # 尝试立即应用（构建环境中可能失败，这是正常的）
+    # 配置文件会在镜像首次启动时自动生效
+    if sudo modprobe tcp_bbr 2>/dev/null && sudo modprobe sch_fq_pie 2>/dev/null; then
+        sudo sysctl -p /etc/sysctl.d/99-network-optimization.conf 2>/dev/null || true
+        log_success "🌐 网络优化配置完成（已立即生效）"
+    else
+        log_success "🌐 网络优化配置完成（将在首次启动时生效）"
+    fi
 }
 
 # ============================================================
