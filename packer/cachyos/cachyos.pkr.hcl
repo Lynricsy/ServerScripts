@@ -335,7 +335,10 @@ build {
   provisioner "shell" {
     inline = [
       "echo '🐧 安装 CachyOS 内核...'",
-      "sudo pacman -R --noconfirm linux linux-headers || true",
+      "# 安全地移除旧内核包（仅移除已安装的）",
+      "pacman -Qq linux 2>/dev/null && sudo pacman -R --noconfirm linux || echo '  ⏭️  linux 未安装，跳过移除'",
+      "pacman -Qq linux-headers 2>/dev/null && sudo pacman -R --noconfirm linux-headers || echo '  ⏭️  linux-headers 未安装，跳过移除'",
+      "# 安装 CachyOS 内核",
       "sudo pacman -S --noconfirm --needed linux-cachyos linux-cachyos-headers",
       "sudo pacman -S --noconfirm --needed cachyos-settings scx-scheds",
       "sudo grub-mkconfig -o /boot/grub/grub.cfg || true"
@@ -387,13 +390,13 @@ build {
       "  if systemctl list-unit-files \"$$svc\" 2>/dev/null | grep -q \"^$$svc\"; then",
       "    if sudo systemctl enable \"$$svc\" 2>/dev/null; then",
       "      echo \"  ✅ 已启用: $${svc%.service}\"",
-      "      ((enabled_count++))",
+      "      ((enabled_count++)) || true",
       "    else",
       "      echo \"  ⚠️  启用失败: $${svc%.service}\"",
       "    fi",
       "  else",
       "    echo \"  ⏭️  跳过（不存在）: $${svc%.service}\"",
-      "    ((skipped_count++))",
+      "    ((skipped_count++)) || true",
       "  fi",
       "done",
       "",
