@@ -288,8 +288,8 @@ build_image() {
     log_step "开始构建 ${distro} 镜像..."
     echo ""
 
-    # 创建输出目录
-    mkdir -p "$output_subdir"
+    # 确保父级输出目录存在 (Packer 会自己创建发行版子目录)
+    mkdir -p "$OUTPUT_DIR"
 
     # 构建 packer 命令参数
     local packer_args=(-var "output_directory=${output_subdir}")
