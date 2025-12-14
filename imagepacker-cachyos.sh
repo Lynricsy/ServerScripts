@@ -212,11 +212,11 @@ ALIAS_EOF" \
   --run-command "mkdir -p /root/.ssh && chmod 700 /root/.ssh" \
   --run-command "chown -R root:root /root/.ssh" \
   --run-command "rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/*" \
-  --run-command "cloud-init clean --logs" \
   --append-line "/etc/systemd/timesyncd.conf:NTP=time.apple.com time.windows.com" \
   --delete "/var/log/*.log" \
   --delete "/var/cache/pacman/pkg/*" \
-  --truncate "/etc/machine-id"
+  --run-command "truncate -s 0 /etc/machine-id || true" \
+  --run-command "cloud-init clean --logs"
 
 log_success "🛠️ 镜像定制完成！"
 CUSTOMIZE_SIZE=$(du -h Arch-Linux-x86_64-cloudimg.qcow2 | cut -f1)
