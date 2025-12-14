@@ -93,9 +93,9 @@ virt-customize -a Arch-Linux-x86_64-cloudimg.qcow2 \
   --append-line "/etc/default/grub:GRUB_DISABLE_OS_PROBER=true" \
   --run-command "grub-mkconfig -o /boot/grub/grub.cfg || true" \
   --run-command "systemctl enable serial-getty@ttyS1.service" \
-  --run-command "sed -i 's/^disable_root:.*/disable_root: false/' /etc/cloud/cloud.cfg" \
-  --run-command "sed -i 's/^\\([ ]*\\)name: arch/\\1name: root/' /etc/cloud/cloud.cfg" \
-  --run-command "sed -i '/default_user:/,/^[^ ]/s/lock_passwd:.*/lock_passwd: false/' /etc/cloud/cloud.cfg" \
+  --run-command "sed -i 's/^disable_root: true/disable_root: false/' /etc/cloud/cloud.cfg" \
+  --run-command "sed -i 's/^\\([ ]*\\)name: arch$/\\1name: root/' /etc/cloud/cloud.cfg" \
+  --run-command "sed -i 's/lock_passwd: True/lock_passwd: false/' /etc/cloud/cloud.cfg" \
   --run-command "pacman-key --init" \
   --run-command "pacman-key --populate archlinux" \
   --run-command "cat > /etc/pacman.d/mirrorlist <<'MIRROREOF'
