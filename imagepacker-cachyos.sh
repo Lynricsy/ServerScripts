@@ -91,6 +91,7 @@ virt-customize -a Arch-Linux-x86_64-cloudimg.qcow2 \
   --timezone "Asia/Hong_Kong" \
   --append-line "/etc/default/grub:# disables OS prober to avoid loopback detection which breaks booting" \
   --append-line "/etc/default/grub:GRUB_DISABLE_OS_PROBER=true" \
+  --run-command "mkdir -p /dev && ln -snf /proc/self/fd /dev/fd && ln -snf /proc/self/fd/0 /dev/stdin && ln -snf /proc/self/fd/1 /dev/stdout && ln -snf /proc/self/fd/2 /dev/stderr" \
   --run-command "grub-mkconfig -o /boot/grub/grub.cfg || true" \
   --run-command "systemctl enable serial-getty@ttyS1.service" \
   --run-command "sed -i 's/^disable_root: true/disable_root: false/' /etc/cloud/cloud.cfg" \
@@ -219,7 +220,8 @@ ALIAS_EOF" \
   --delete "/var/log/*.log" \
   --delete "/var/cache/pacman/pkg/*" \
   --run-command "truncate -s 0 /etc/machine-id || true" \
-  --run-command "cloud-init clean --logs"
+  --run-command "cloud-init clean --logs" \
+  --run-command "command -v gpgconf >/dev/null 2>&1 && gpgconf --kill all || true"
 
 log_success "🛠️ 镜像定制完成！"
 CUSTOMIZE_SIZE=$(du -h Arch-Linux-x86_64-cloudimg.qcow2 | cut -f1)
