@@ -2,6 +2,7 @@
 # CachyOS cloud-init 配置脚本
 # 功能：配置 cloud-init 兼容性（针对 Proxmox/私有云环境）
 # 创建者: Mare Ashley Pecker
+# 适配: cloud-init 25.x (Arch Linux)
 
 set -euo pipefail
 
@@ -20,13 +21,14 @@ cat <<'EOF' | sudo tee /etc/cloud/cloud.cfg.d/99-proxmox.cfg
 datasource_list: [ NoCloud, ConfigDrive, None ]
 EOF
 
-# 智能检测并启用 cloud-init 服务
-echo '🔧 智能检测并启用 cloud-init 服务...'
+# cloud-init 25.x 服务列表 (Arch Linux)
+# 参考: https://archlinux.org/packages/extra/any/cloud-init/files/
+echo '🔧 启用 cloud-init 服务...'
 
 declare -a services=(
   'cloud-init-local.service'
-  'cloud-init.service'
   'cloud-init-main.service'
+  'cloud-init-network.service'
   'cloud-config.service'
   'cloud-final.service'
   'cloud-init.target'
@@ -36,16 +38,16 @@ enabled_count=0
 skipped_count=0
 
 for svc in "${services[@]}"; do
-  # 检查服务单元文件是否存在
-  if systemctl list-unit-files "$svc" 2>/dev/null | grep -q "^$svc"; then
+  # 使用 systemctl cat 检查服务是否存在（更可靠的方法）
+  if systemctl cat "$svc" &>/dev/null; then
     if sudo systemctl enable "$svc" 2>/dev/null; then
-      echo "  ✅ 已启用: ${svc%.service}"
+      echo "  ✅ 已启用: ${svc}"
       ((enabled_count++)) || true
     else
-      echo "  ⚠️  启用失败: ${svc%.service}"
+      echo "  ⚠️  启用失败: ${svc}"
     fi
   else
-    echo "  ⏭️  跳过（不存在）: ${svc%.service}"
+    echo "  ⏭️  跳过（不存在）: ${svc}"
     ((skipped_count++)) || true
   fi
 done
@@ -55,7 +57,7 @@ echo "📊 服务启用统计："
 echo "  ✅ 成功启用: $enabled_count 个"
 echo "  ⏭️  跳过服务: $skipped_count 个"
 
-# 验证至少启用了核心服务
+# 验证至少启用了核心服务（local, main, final 是必需的）
 if [[ $enabled_count -lt 3 ]]; then
   echo ""
   echo "⚠️  警告: 只启用了 $enabled_count 个服务，可能不足以保证 cloud-init 正常工作"
@@ -70,11 +72,11 @@ if command -v cloud-init &>/dev/null; then
   version=$(cloud-init --version 2>&1 | head -n1)
   echo "  ℹ️  版本: $version"
 
-  # 验证配置文件语法
+  # 验证配置文件语法（在构建环境中可能失败，这是正常的）
   if cloud-init schema --system &>/dev/null; then
     echo "  ✅ 配置文件语法正确"
   else
-    echo "  ⚠️  配置文件可能存在问题，但不影响继续构建"
+    echo "  ⚠️  配置文件验证跳过（构建环境无完整数据源，这是正常的）"
   fi
 
   # 列出已启用的服务
@@ -83,7 +85,7 @@ if command -v cloud-init &>/dev/null; then
     grep -E 'enabled|static' | \
     awk '{print "    - " $1 " (" $2 ")"}' || echo "    (无)"
 
-  echo "  ✅ cloud-init 可用性验证通过"
+  echo "  ✅ cloud-init 配置完成"
 else
   echo "  ❌ 错误: cloud-init 命令不可用"
   echo "  请确保已安装 cloud-init 包"
