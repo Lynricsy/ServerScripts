@@ -110,7 +110,7 @@ MIRROREOF" \
 # 目的：避免 datasource 探测不到导致 cloud-init 不执行，从而出现“账号/IP 都不生效”
 datasource_list: [ NoCloud, ConfigDrive, None ]
 EOF" \
-  --run-command "systemctl enable cloud-init-local.service cloud-init.service cloud-config.service cloud-final.service cloud-init.target || true" \
+  --run-command "for svc in cloud-init-local cloud-init cloud-init-main cloud-config cloud-final cloud-init.target; do systemctl list-unit-files | grep -q \"^\$svc\" && systemctl enable \$svc || true; done" \
   --run-command "systemctl enable systemd-networkd.service systemd-resolved.service || true" \
   --run-command "systemctl enable sshd.service || true" \
   --run-command "install -d -m 0755 /etc/systemd/network" \

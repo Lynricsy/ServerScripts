@@ -211,6 +211,20 @@ build {
   }
 
   # ----------------------------------------------------------
+  # 3.5. 配置并启动时间同步（防止 GPG 时钟偏差）
+  # ----------------------------------------------------------
+  provisioner "shell" {
+    inline = [
+      "echo '🕐 配置并启动时间同步...'",
+      "echo 'NTP=time.apple.com time.windows.com' | sudo tee /etc/systemd/timesyncd.conf",
+      "sudo systemctl start systemd-timesyncd.service || true",
+      "sudo timedatectl set-ntp true || true",
+      "sleep 3",
+      "echo '✅ 时间同步已启动'"
+    ]
+  }
+
+  # ----------------------------------------------------------
   # 4. 初始化 Pacman
   # ----------------------------------------------------------
   provisioner "shell" {
@@ -353,7 +367,13 @@ build {
       "# 注意: 此配置针对 Proxmox/私有云环境，公有云部署需删除此文件",
       "datasource_list: [ NoCloud, ConfigDrive, None ]",
       "EOF",
-      "sudo systemctl enable cloud-init-local.service cloud-init.service cloud-config.service cloud-final.service cloud-init.target || true",
+      "echo '🔧 启用 cloud-init 服务...'",
+      "for svc in cloud-init-local cloud-init cloud-init-main cloud-config cloud-final cloud-init.target; do",
+      "  if sudo systemctl list-unit-files | grep -q \"^$svc\"; then",
+      "    echo \"  ✓ 启用 $svc\"",
+      "    sudo systemctl enable $svc || echo \"  ⚠ 启用 $svc 失败\"",
+      "  fi",
+      "done",
       "sudo systemctl enable systemd-networkd.service systemd-resolved.service || true",
       "sudo systemctl enable sshd.service || true"
     ]
@@ -401,23 +421,14 @@ build {
   }
 
   # ----------------------------------------------------------
-  # 16. 配置 NTP
-  # ----------------------------------------------------------
-  provisioner "shell" {
-    inline = [
-      "echo 'NTP=time.apple.com time.windows.com' | sudo tee -a /etc/systemd/timesyncd.conf"
-    ]
-  }
-
-  # ----------------------------------------------------------
   # 17. 运行时清理 (在 VM 内可以做的)
   # ----------------------------------------------------------
   provisioner "shell" {
     inline = [
       "echo '🧹 运行时清理...'",
-      "sudo rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/*",
-      "sudo rm -f /var/log/*.log",
-      "yes | sudo pacman -Scc || true",
+      "yes | sudo pacman -Scc 2>/dev/null || true",
+      "sudo rm -f /var/log/*.log /var/log/*/*.log",
+      "sudo rm -rf /tmp/* /var/tmp/*",
       "sync"
     ]
   }
