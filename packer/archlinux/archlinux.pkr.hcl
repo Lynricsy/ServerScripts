@@ -1,28 +1,24 @@
-# Arch Linux 定制镜像构建 - HashiCorp Packer 版本
-# 创建时间: 2025-12-14 +08:00
+# Arch Linux 定制镜像构建 - HashiCorp Packer 混合版本
+# 创建时间: 2025-12-14
 # 创建者: Mare Ashley Pecker (mare@sent.com)
-# 基础镜像: fastly.mirror.pkgbuild.com/images/latest/Arch-Linux-x86_64-cloudimg.qcow2
+# 说明: 使用 Packer QEMU builder 启动 VM 进行配置，最后用 virt-customize 清理
 
 packer {
   required_plugins {
     qemu = {
-      version = ">= 1.0.0"
+      version = ">= 1.1.0"
       source  = "github.com/hashicorp/qemu"
     }
   }
 }
 
+# ============================================================
 # 变量定义
+# ============================================================
 variable "output_directory" {
   type        = string
-  default     = "output-archlinux"
+  default     = "output"
   description = "输出目录"
-}
-
-variable "disk_size" {
-  type        = string
-  default     = "6G"
-  description = "磁盘大小"
 }
 
 variable "memory" {
@@ -37,10 +33,16 @@ variable "cpus" {
   description = "CPU 核心数"
 }
 
+variable "disk_size" {
+  type        = string
+  default     = "6G"
+  description = "磁盘大小"
+}
+
 variable "timezone" {
   type        = string
   default     = "Asia/Hong_Kong"
-  description = "时区设置"
+  description = "时区"
 }
 
 variable "locale" {
@@ -61,95 +63,179 @@ variable "git_user_email" {
   description = "Git 邮箱"
 }
 
-# 本地变量
-locals {
-  base_image_url  = "https://fastly.mirror.pkgbuild.com/images/latest/Arch-Linux-x86_64-cloudimg.qcow2"
-  output_filename = "Arch-Linux-NEXT.qcow2"
+variable "ssh_password" {
+  type        = string
+  default     = "packer"
+  description = "临时 SSH 密码"
+  sensitive   = true
 }
 
-# 数据源：下载基础镜像
+# ============================================================
+# 本地变量
+# ============================================================
+locals {
+  base_image_url  = "https://fastly.mirror.pkgbuild.com/images/latest/Arch-Linux-x86_64-cloudimg.qcow2"
+  base_image_name = "Arch-Linux-x86_64-cloudimg.qcow2"
+  output_name     = "Arch-Linux-NEXT.qcow2"
+  scripts_dir     = "${path.root}/../scripts"
+
+  # cloud-init 配置
+  cloud_init_meta = <<-EOF
+    instance-id: packer-archlinux
+    local-hostname: archlinux-build
+  EOF
+
+  cloud_init_user = <<-EOF
+    #cloud-config
+    users:
+      - name: root
+        lock_passwd: false
+        shell: /bin/bash
+      - name: packer
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        lock_passwd: false
+        plain_text_passwd: ${var.ssh_password}
+        shell: /bin/bash
+    ssh_pwauth: true
+    disable_root: false
+    chpasswd:
+      expire: false
+      users:
+        - name: root
+          password: ${var.ssh_password}
+          type: text
+        - name: packer
+          password: ${var.ssh_password}
+          type: text
+    runcmd:
+      - systemctl enable sshd
+      - systemctl start sshd
+  EOF
+}
+
+# ============================================================
+# QEMU Builder
+# ============================================================
 source "qemu" "archlinux" {
-  iso_url          = local.base_image_url
-  iso_checksum     = "none"
-  disk_image       = true
+  # 基础镜像
+  iso_url      = local.base_image_url
+  iso_checksum = "none"
+  disk_image   = true
 
+  # 输出配置
   output_directory = var.output_directory
-  vm_name          = local.output_filename
+  vm_name          = local.output_name
 
+  # 磁盘配置
   format           = "qcow2"
   disk_size        = var.disk_size
   disk_compression = true
+  skip_resize_disk = false
 
-  memory           = var.memory
-  cpus             = var.cpus
-
-  accelerator      = "kvm"
-  headless         = true
-
-  # SSH 配置 (cloud-init 默认用户)
-  ssh_username     = "arch"
-  ssh_timeout      = "40m"
+  # VM 资源
+  memory      = var.memory
+  cpus        = var.cpus
+  accelerator = "kvm"
+  headless    = true
 
   # QEMU 参数
   qemuargs = [
     ["-cpu", "host"],
     ["-machine", "type=q35,accel=kvm"],
+    ["-smbios", "type=1,serial=ds=nocloud"],
   ]
 
+  # cloud-init 通过 CD-ROM 注入
+  cd_content = {
+    "meta-data" = local.cloud_init_meta
+    "user-data" = local.cloud_init_user
+  }
+  cd_label = "cidata"
+
+  # SSH 配置
+  ssh_username           = "packer"
+  ssh_password           = var.ssh_password
+  ssh_timeout            = "30m"
+  ssh_handshake_attempts = 100
+
+  # 关机命令
   shutdown_command = "sudo shutdown -P now"
 }
 
-# 构建定义
+# ============================================================
+# 构建流程
+# ============================================================
 build {
   name    = "archlinux"
   sources = ["source.qemu.archlinux"]
 
-  # 等待 cloud-init 完成
+  # ----------------------------------------------------------
+  # 1. 等待系统就绪
+  # ----------------------------------------------------------
   provisioner "shell" {
     inline = [
-      "cloud-init status --wait || true",
-      "sudo -i"
+      "echo '⏳ 等待 cloud-init 完成...'",
+      "sudo cloud-init status --wait || true",
+      "echo '✅ 系统已就绪'"
     ]
   }
 
-  # 配置时区
+  # ----------------------------------------------------------
+  # 2. 配置时区和 Locale
+  # ----------------------------------------------------------
   provisioner "shell" {
     inline = [
+      "echo '🌍 配置时区和语言环境...'",
       "sudo ln -sf /usr/share/zoneinfo/${var.timezone} /etc/localtime",
-      "sudo hwclock --systohc"
+      "sudo hwclock --systohc",
+      "sudo sed -i 's/^#zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen",
+      "sudo sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen",
+      "sudo locale-gen",
+      "echo 'LANG=${var.locale}' | sudo tee /etc/locale.conf"
     ]
   }
 
-  # 配置 GRUB
+  # ----------------------------------------------------------
+  # 3. 配置 GRUB
+  # ----------------------------------------------------------
   provisioner "shell" {
     inline = [
-      "echo '# disables OS prober to avoid loopback detection which breaks booting' | sudo tee -a /etc/default/grub",
+      "echo '⚙️ 配置 GRUB...'",
+      "echo '# disables OS prober to avoid loopback detection' | sudo tee -a /etc/default/grub",
       "echo 'GRUB_DISABLE_OS_PROBER=true' | sudo tee -a /etc/default/grub",
       "sudo grub-mkconfig -o /boot/grub/grub.cfg || true",
-      "sudo systemctl enable serial-getty@ttyS1.service"
+      "sudo systemctl enable serial-getty@ttyS1.service || true"
     ]
   }
 
-  # 初始化 pacman 密钥
+  # ----------------------------------------------------------
+  # 4. 初始化 Pacman
+  # ----------------------------------------------------------
   provisioner "shell" {
     inline = [
+      "echo '🔑 初始化 Pacman...'",
       "sudo pacman-key --init",
       "sudo pacman-key --populate archlinux"
     ]
   }
 
-  # 配置镜像源
+  # ----------------------------------------------------------
+  # 5. 配置镜像源
+  # ----------------------------------------------------------
   provisioner "shell" {
     inline = [
-      "cat <<'MIRROREOF' | sudo tee /etc/pacman.d/mirrorlist",
+      "echo '🌐 配置镜像源...'",
+      "cat <<'EOF' | sudo tee /etc/pacman.d/mirrorlist",
       "# Hong Kong mirrors",
       "Server = https://mirror.xtom.com.hk/archlinux/$repo/os/$arch",
       "Server = https://mirror-hk.koddos.net/archlinux/$repo/os/$arch",
-      "MIRROREOF"
+      "EOF"
     ]
   }
 
-  # 添加 archlinuxcn 仓库
+  # ----------------------------------------------------------
+  # 6. 添加 archlinuxcn 仓库
+  # ----------------------------------------------------------
   provisioner "shell" {
     inline = [
       "echo '' | sudo tee -a /etc/pacman.conf",
@@ -161,192 +247,124 @@ build {
     ]
   }
 
-  # 配置 Locale
+  # ----------------------------------------------------------
+  # 7. 安装软件包
+  # ----------------------------------------------------------
   provisioner "shell" {
     inline = [
-      "sudo sed -i 's/^#zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen",
-      "sudo sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen",
-      "sudo locale-gen",
-      "echo 'LANG=${var.locale}' | sudo tee /etc/locale.conf"
+      "echo '📦 安装软件包...'",
+      "sudo pacman -S --noconfirm --needed sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind zstd lsof p7zip git tree zsh fastfetch gnupg eza bat fd ripgrep btop micro docker docker-compose docker-buildx cloud-init"
     ]
   }
 
-  # 安装基础软件包
+  # ----------------------------------------------------------
+  # 8. 配置 cloud-init 兼容性
+  # ----------------------------------------------------------
+  # 注意: datasource_list 配置针对 Proxmox/私有云环境优化
+  # 如果要部署到 AWS/GCP/Azure 等公有云，需要删除或修改 99-proxmox.cfg
   provisioner "shell" {
     inline = [
-      "sudo pacman -S --noconfirm --needed sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind zstd lsof p7zip git tree zsh fastfetch gnupg eza bat fd ripgrep btop micro"
+      "echo '☁️ 配置 cloud-init...'",
+      "sudo rm -f /etc/cloud/cloud-init.disabled || true",
+      "sudo install -d -m 0755 /etc/cloud/cloud.cfg.d",
+      "cat <<'EOF' | sudo tee /etc/cloud/cloud.cfg.d/99-proxmox.cfg",
+      "# Proxmox / NoCloud / ConfigDrive 兼容性增强",
+      "# 注意: 此配置针对 Proxmox/私有云环境，公有云部署需删除此文件",
+      "datasource_list: [ NoCloud, ConfigDrive, None ]",
+      "EOF",
+      "sudo systemctl enable cloud-init-local.service cloud-init.service cloud-config.service cloud-final.service cloud-init.target || true",
+      "sudo systemctl enable systemd-networkd.service systemd-resolved.service || true",
+      "sudo systemctl enable sshd.service || true"
     ]
   }
 
-  # 配置网络优化 (BBR + fq_pie)
+  # ----------------------------------------------------------
+  # 9. 配置 DHCP fallback (最低优先级)
+  # ----------------------------------------------------------
+  # 使用 zz- 前缀确保最低优先级，只在 cloud-init 网络配置失败时生效
   provisioner "shell" {
     inline = [
-      "sudo mkdir -p /etc/sysctl.d",
-      "echo -e 'tcp_bbr\\nsch_fq_pie' | sudo tee /etc/modules-load.d/network-tuning.conf",
-      "echo 'net.core.default_qdisc=fq_pie' | sudo tee /etc/sysctl.d/99-network-optimization.conf",
-      "echo 'net.ipv4.tcp_congestion_control=bbr' | sudo tee -a /etc/sysctl.d/99-network-optimization.conf",
-      "sudo sysctl -p /etc/sysctl.d/99-network-optimization.conf || true"
-    ]
-  }
-
-  # 安装 Docker
-  provisioner "shell" {
-    inline = [
-      "sudo pacman -S --noconfirm --needed docker docker-compose docker-buildx",
-      "sudo systemctl enable docker.service",
-      "sudo usermod -aG docker root",
-      "sudo mkdir -p /etc/docker"
-    ]
-  }
-
-  # 配置 Docker daemon
-  provisioner "file" {
-    content = jsonencode({
-      "log-driver" = "json-file"
-      "log-opts" = {
-        "max-size" = "10m"
-        "max-file" = "3"
-      }
-      "storage-driver" = "overlay2"
-      "default-address-pools" = [
-        {
-          "base" = "172.18.0.0/16"
-          "size" = 24
-        }
-      ]
-    })
-    destination = "/tmp/daemon.json"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "sudo mv /tmp/daemon.json /etc/docker/daemon.json"
-    ]
-  }
-
-  # 安装 Zim Framework 和 Powerlevel10k
-  provisioner "shell" {
-    inline = [
-      "sudo HOME=/root ZIM_HOME=/root/.zim curl -fsSL https://raw.githubusercontent.com/zimfw/install/master/install.zsh | sudo HOME=/root ZIM_HOME=/root/.zim zsh -f",
-      "sudo grep -qx 'zmodule romkatv/powerlevel10k --use degit' /root/.zimrc || echo 'zmodule romkatv/powerlevel10k --use degit' | sudo tee -a /root/.zimrc",
-      "sudo chmod +x /root/.zim/zimfw.zsh",
-      "sudo HOME=/root ZIM_HOME=/root/.zim zsh -f /root/.zim/zimfw.zsh install"
-    ]
-  }
-
-  # 配置 .zshrc
-  provisioner "shell" {
-    inline = [
-      "sudo touch /root/.zshrc",
-      "sudo grep -qx 'cat /etc/motd' /root/.zshrc || sudo sed -i '1i cat /etc/motd' /root/.zshrc",
-      "sudo grep -qx 'fastfetch' /root/.zshrc || sudo sed -i '/^cat \\/etc\\/motd$/a fastfetch' /root/.zshrc"
-    ]
-  }
-
-  # 配置 Powerlevel10k instant prompt
-  provisioner "shell" {
-    inline = [
-      "cat <<'P10K_EOF' | sudo tee /tmp/p10k_instant_block",
-      "# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.",
-      "# Initialization code that may require console input (password prompts, [y/n]",
-      "# confirmations, etc.) must go above this block; everything else may go below.",
-      "if [[ -r \"$${XDG_CACHE_HOME:-$$HOME/.cache}/p10k-instant-prompt-$${(%):-%n}.zsh\" ]]; then",
-      "  source \"$${XDG_CACHE_HOME:-$$HOME/.cache}/p10k-instant-prompt-$${(%):-%n}.zsh\"",
-      "fi",
-      "P10K_EOF",
-      "sudo grep -q 'p10k-instant-prompt' /root/.zshrc || sudo sed -i '/^fastfetch$/r /tmp/p10k_instant_block' /root/.zshrc",
-      "sudo rm -f /tmp/p10k_instant_block",
-      "sudo grep -q 'source ~/.p10k.zsh' /root/.zshrc || echo -e '\\n# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.\\n[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh' | sudo tee -a /root/.zshrc",
-      "sudo grep -q 'p10k finalize' /root/.zshrc || echo '(( ! $${+functions[p10k]} )) || p10k finalize' | sudo tee -a /root/.zshrc"
-    ]
-  }
-
-  # 配置 CLI 别名
-  provisioner "shell" {
-    inline = [
-      "cat <<'ALIAS_EOF' | sudo tee -a /root/.zshrc",
+      "sudo install -d -m 0755 /etc/systemd/network",
+      "cat <<'EOF' | sudo tee /etc/systemd/network/zz-fallback-dhcp.network",
+      "# Fallback DHCP 配置 - 最低优先级",
+      "# 仅在 cloud-init 网络配置失败或不存在时生效",
+      "[Match]",
+      "Name=en* eth* ens* enp* eno*",
       "",
-      "# Modern CLI tools aliases",
-      "alias ls='eza --icons --group-directories-first'",
-      "alias ll='eza --icons --group-directories-first -lh'",
-      "alias la='eza --icons --group-directories-first -lah'",
-      "alias lt='eza --icons --group-directories-first --tree'",
-      "alias cat='bat --paging=never --style=plain'",
-      "alias catp='bat --paging=always'",
-      "alias find='fd'",
-      "alias mo='micro'",
-      "alias grep='rg'",
-      "alias top='btop'",
-      "ALIAS_EOF"
+      "[Network]",
+      "DHCP=yes",
+      "EOF"
     ]
   }
 
-  # 下载 motd 和 p10k 配置
+  # ----------------------------------------------------------
+  # 10. 上传并执行通用配置脚本
+  # ----------------------------------------------------------
+  provisioner "file" {
+    source      = "${local.scripts_dir}/common-provision.sh"
+    destination = "/tmp/common-provision.sh"
+  }
+
   provisioner "shell" {
+    environment_vars = [
+      "HOME=/root",
+      "GIT_USER_NAME=${var.git_user_name}",
+      "GIT_USER_EMAIL=${var.git_user_email}"
+    ]
     inline = [
-      "sudo touch /root/.hushlogin",
-      "sudo curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/motd -o /etc/motd && sudo chmod 644 /etc/motd",
-      "sudo curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/p10k.zsh -o /root/.p10k.zsh && sudo chmod 644 /root/.p10k.zsh"
+      "chmod +x /tmp/common-provision.sh",
+      "sudo -E /tmp/common-provision.sh",
+      "rm -f /tmp/common-provision.sh"
     ]
   }
 
-  # 配置 Git
-  provisioner "shell" {
-    inline = [
-      "sudo HOME=/root git config --global user.name '${var.git_user_name}'",
-      "sudo HOME=/root git config --global user.email '${var.git_user_email}'",
-      "sudo HOME=/root git config --global init.defaultBranch main",
-      "sudo HOME=/root git config --global color.ui auto",
-      "sudo HOME=/root git config --global core.editor nano",
-      "sudo HOME=/root git config --global diff.algorithm histogram",
-      "sudo HOME=/root git config --global merge.conflictstyle diff3",
-      "sudo HOME=/root git config --global pull.rebase false",
-      "sudo HOME=/root git config --global alias.st status",
-      "sudo HOME=/root git config --global alias.co checkout",
-      "sudo HOME=/root git config --global alias.br branch",
-      "sudo HOME=/root git config --global alias.ci commit",
-      "sudo HOME=/root git config --global alias.unstage 'reset HEAD --'",
-      "sudo HOME=/root git config --global alias.last 'log -1 HEAD'",
-      "sudo HOME=/root git config --global alias.lg \"log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit\"",
-      "sudo HOME=/root git config --global alias.contributors 'shortlog -sn'"
-    ]
-  }
-
-  # 配置 SSH
-  provisioner "shell" {
-    inline = [
-      "sudo mkdir -p /root/.ssh && sudo chmod 700 /root/.ssh",
-      "sudo chown -R root:root /root/.ssh"
-    ]
-  }
-
-  # 配置 NTP
+  # ----------------------------------------------------------
+  # 11. 配置 NTP
+  # ----------------------------------------------------------
   provisioner "shell" {
     inline = [
       "echo 'NTP=time.apple.com time.windows.com' | sudo tee -a /etc/systemd/timesyncd.conf"
     ]
   }
 
-  # 清理
+  # ----------------------------------------------------------
+  # 12. 运行时清理
+  # ----------------------------------------------------------
   provisioner "shell" {
     inline = [
-      "yes | sudo pacman -Scc",
+      "echo '🧹 运行时清理...'",
+      "sudo rm -rf /var/cache/pacman/pkg/* /var/lib/pacman/sync/*",
       "sudo rm -f /var/log/*.log",
-      "sudo rm -rf /var/cache/pacman/pkg/*",
-      "sudo truncate -s 0 /etc/machine-id || true",
-      "sudo rm -f /var/lib/dbus/machine-id || true"
+      "yes | sudo pacman -Scc || true",
+      "sync"
     ]
   }
 
-  # 压缩输出镜像
+  # ----------------------------------------------------------
+  # 13. 使用 virt-customize 进行最终清理
+  # ----------------------------------------------------------
   post-processor "shell-local" {
     inline = [
-      "echo '🗜️ 正在压缩镜像...'",
-      "qemu-img convert -c -O qcow2 ${var.output_directory}/${local.output_filename} ${var.output_directory}/${local.output_filename}.compressed",
-      "mv ${var.output_directory}/${local.output_filename}.compressed ${var.output_directory}/${local.output_filename}",
+      "echo '🧹 执行最终清理 (virt-customize)...'",
+      "chmod +x ${local.scripts_dir}/final-cleanup.sh",
+      "${local.scripts_dir}/final-cleanup.sh ${var.output_directory}/${local.output_name}"
+    ]
+  }
+
+  # ----------------------------------------------------------
+  # 14. 压缩镜像
+  # ----------------------------------------------------------
+  post-processor "shell-local" {
+    inline = [
+      "echo '🗜️ 压缩镜像...'",
+      "qemu-img convert -c -O qcow2 ${var.output_directory}/${local.output_name} ${var.output_directory}/${local.output_name}.compressed",
+      "mv ${var.output_directory}/${local.output_name}.compressed ${var.output_directory}/${local.output_name}",
+      "echo ''",
+      "echo '================================================'",
       "echo '✅ Arch Linux 镜像构建完成！'",
-      "echo '📁 输出文件: ${var.output_directory}/${local.output_filename}'",
-      "du -h ${var.output_directory}/${local.output_filename}"
+      "echo '📁 输出文件: ${var.output_directory}/${local.output_name}'",
+      "du -h ${var.output_directory}/${local.output_name}",
+      "echo '================================================'"
     ]
   }
 }
