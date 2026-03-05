@@ -290,7 +290,7 @@ build {
   provisioner "shell" {
     inline = [
       "echo '📦 配置 pacman.conf...'",
-      "sudo sed -i 's/^Architecture = .*/Architecture = x86_64 x86_64_v4/' /etc/pacman.conf",
+      "sudo sed -i 's/^Architecture = .*/Architecture = x86_64 x86_64_v3 x86_64_v4/' /etc/pacman.conf",
       "sudo sed -i '/^\\[core\\]/i # CachyOS Repositories (x86-64-v4 optimized)\\n[cachyos-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-core-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-extra-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos]\\nInclude = /etc/pacman.d/cachyos-mirrorlist\\n' /etc/pacman.conf",
       "echo '' | sudo tee -a /etc/pacman.conf",
       "echo '# Arch Linux CN Repository' | sudo tee -a /etc/pacman.conf",
@@ -309,7 +309,7 @@ build {
       "  echo '🔧 处理 pacman.conf.pacnew...'",
       "  sudo cp /etc/pacman.conf /etc/pacman.conf.backup",
       "  sudo mv /etc/pacman.conf.pacnew /etc/pacman.conf",
-      "  sudo sed -i 's/^Architecture = .*/Architecture = x86_64 x86_64_v4/' /etc/pacman.conf",
+      "  sudo sed -i 's/^Architecture = .*/Architecture = x86_64 x86_64_v3 x86_64_v4/' /etc/pacman.conf",
       "  sudo sed -i '/^\\[core\\]/i # CachyOS Repositories (x86-64-v4 optimized)\\n[cachyos-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-core-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos-extra-v4]\\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\\n\\n[cachyos]\\nInclude = /etc/pacman.d/cachyos-mirrorlist\\n' /etc/pacman.conf",
       "  echo '' | sudo tee -a /etc/pacman.conf",
       "  echo '# Arch Linux CN Repository' | sudo tee -a /etc/pacman.conf",
@@ -351,7 +351,7 @@ build {
   provisioner "shell" {
     inline = [
       "echo '📦 安装软件包...'",
-      "sudo pacman -S --noconfirm --needed sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind zstd lsof p7zip git tree zsh fastfetch gnupg eza bat fd ripgrep btop micro docker docker-compose docker-buildx cloud-init"
+      "sudo pacman -S --noconfirm --needed sudo qemu-guest-agent spice-vdagent bash-completion unzip wget curl axel net-tools iputils iproute2 nano most screen less vim bzip2 lldpd mtr htop bind zstd lsof p7zip git tree zsh fastfetch gnupg eza bat fd ripgrep btop micro docker docker-compose docker-buildx cloud-init tmux zellij"
     ]
   }
 

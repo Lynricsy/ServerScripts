@@ -137,6 +137,37 @@ ZSHRC_FOOTER
 }
 
 # ============================================================
+# Tmux + 插件配置
+# ============================================================
+configure_tmux() {
+    log_step "🖥️ 配置 Tmux + 插件..."
+
+    # 创建目录结构
+    mkdir -p /root/.tmux/plugins
+    mkdir -p /root/.config/tmux/plugins/tmux-plugins
+
+    # 安装 TPM (Tmux Plugin Manager)
+    if [ ! -d /root/.tmux/plugins/tpm ]; then
+        git clone https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
+    fi
+
+    # 安装 Catppuccin 主题 (手动安装，不通过 TPM)
+    if [ ! -d /root/.config/tmux/plugins/catppuccin ]; then
+        git clone https://github.com/catppuccin/tmux.git /root/.config/tmux/plugins/catppuccin/tmux
+    fi
+
+    # 安装 tmux-cpu 插件 (catppuccin 状态栏依赖)
+    if [ ! -d /root/.config/tmux/plugins/tmux-plugins/tmux-cpu ]; then
+        git clone https://github.com/tmux-plugins/tmux-cpu /root/.config/tmux/plugins/tmux-plugins/tmux-cpu
+    fi
+
+    # 通过 TPM 安装所有 @plugin 声明的插件 (非交互模式)
+    /root/.tmux/plugins/tpm/bin/install_plugins || true
+
+    log_success "🖥️ Tmux 配置完成"
+}
+
+# ============================================================
 # CLI 别名配置
 # ============================================================
 configure_aliases() {
@@ -184,6 +215,17 @@ download_configs() {
     # 下载 p10k 配置
     curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/p10k.zsh -o /root/.p10k.zsh
     chmod 644 /root/.p10k.zsh
+
+    # 下载 tmux 配置
+    mkdir -p /root/.config/tmux
+    curl -fsSL https://raw.githubusercontent.com/Lynricsy/ServerScripts/refs/heads/master/tmux.conf -o /root/.config/tmux/tmux.conf
+    chmod 644 /root/.config/tmux/tmux.conf
+
+    # 下载 fastfetch 配置
+    mkdir -p /root/.config/fastfetch
+    curl -fsSL https://raw.githubusercontent.com/s0raLin/fastfetch-config/main/config.jsonc -o /root/.config/fastfetch/config.jsonc
+    curl -fsSL https://raw.githubusercontent.com/s0raLin/fastfetch-config/main/ascii.txt -o /root/.config/fastfetch/ascii.txt
+    chmod 644 /root/.config/fastfetch/config.jsonc /root/.config/fastfetch/ascii.txt
 
     log_success "📥 配置文件下载完成"
 }
@@ -259,6 +301,7 @@ main() {
     configure_zsh
     configure_aliases
     download_configs
+    configure_tmux
     configure_git
     configure_ssh
     configure_ntp
