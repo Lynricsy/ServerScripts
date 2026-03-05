@@ -168,6 +168,53 @@ configure_tmux() {
 }
 
 # ============================================================
+# OpenCode 安装配置
+# ============================================================
+configure_opencode() {
+    log_step "🤖 安装 OpenCode..."
+
+    # 使用官方安装脚本安装 OpenCode
+    curl -fsSL https://opencode.ai/install | bash
+
+    # 确保 opencode 在系统 PATH 中（安装脚本可能仅安装到 ~/.local/bin）
+    if [ -f /root/.local/bin/opencode ] && [ ! -f /usr/local/bin/opencode ]; then
+        ln -sf /root/.local/bin/opencode /usr/local/bin/opencode
+    fi
+
+    # 验证安装
+    if command -v opencode &>/dev/null; then
+        log_success "🤖 OpenCode 安装完成 ($(opencode --version 2>/dev/null || echo 'version unknown'))"
+    else
+        log_info "⚠️ OpenCode 安装完成，但可能需要重新加载 PATH"
+    fi
+
+    # 创建配置目录
+    mkdir -p /root/.config/opencode
+}
+
+# ============================================================
+# Factory Droid 安装配置
+# ============================================================
+configure_factory_droid() {
+    log_step "🤖 安装 Factory Droid..."
+
+    # 使用官方安装脚本安装 Factory Droid CLI
+    curl -fsSL https://app.factory.ai/cli | sh
+
+    # 确保 droid 在系统 PATH 中（安装脚本可能仅安装到 ~/.local/bin）
+    if [ -f /root/.local/bin/droid ] && [ ! -f /usr/local/bin/droid ]; then
+        ln -sf /root/.local/bin/droid /usr/local/bin/droid
+    fi
+
+    # 验证安装
+    if command -v droid &>/dev/null; then
+        log_success "🤖 Factory Droid 安装完成 ($(droid --version 2>/dev/null || echo 'version unknown'))"
+    else
+        log_info "⚠️ Factory Droid 安装完成，但可能需要重新加载 PATH"
+    fi
+}
+
+# ============================================================
 # CLI 别名配置
 # ============================================================
 configure_aliases() {
@@ -302,6 +349,8 @@ main() {
     configure_aliases
     download_configs
     configure_tmux
+    configure_opencode
+    configure_factory_droid
     configure_git
     configure_ssh
     configure_ntp
