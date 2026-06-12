@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 # XanMod内核安装脚本
 
@@ -10,6 +11,12 @@ BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+readonly XANMOD_KEY_URL="https://dl.xanmod.org/archive.key"
+readonly XANMOD_KEYRING="/etc/apt/keyrings/xanmod-archive-keyring.gpg"
+readonly XANMOD_SOURCE_LIST="/etc/apt/sources.list.d/xanmod-release.list"
+readonly XANMOD_REPOSITORY_URL="http://deb.xanmod.org"
+readonly XANMOD_KERNEL_PACKAGE="linux-xanmod-x64v3"
 
 # 日志函数
 log_info() {
@@ -32,6 +39,28 @@ log_step() {
   echo -e "${PURPLE}[STEP]${NC} $1"
 }
 
+# 获取 Debian/Ubuntu 发行版代号
+get_distribution_codename() {
+  local codename=""
+
+  if [[ -r /etc/os-release ]]; then
+      # shellcheck disable=SC1091
+      . /etc/os-release
+      codename="${VERSION_CODENAME:-${UBUNTU_CODENAME:-}}"
+  fi
+
+  if [[ -z "$codename" ]] && command -v lsb_release >/dev/null 2>&1; then
+      codename="$(lsb_release -sc 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$codename" ]]; then
+      log_error "无法识别发行版代号，不能配置XanMod软件源！"
+      exit 1
+  fi
+
+  printf '%s\n' "$codename"
+}
+
 # 检查是否为root用户
 check_root() {
   if [[ $EUID -ne 0 ]]; then
@@ -49,7 +78,7 @@ install_xanmod() {
   
   # 步骤1: 更新包列表并安装依赖
   log_step "更新包列表并安装必要依赖..."
-  if apt update -y && apt install -y wget gnupg; then
+  if apt update -y && apt install -y ca-certificates wget gnupg; then
       log_success "依赖安装完成！"
   else
       log_error "依赖安装失败！"
@@ -58,7 +87,9 @@ install_xanmod() {
   
   # 步骤2: 添加XanMod GPG密钥
   log_step "添加XanMod GPG密钥..."
-  if wget -qO - https://gitlab.com/afrd.gpg | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes; then
+  if install -d -m 0755 "$(dirname "$XANMOD_KEYRING")" \
+      && wget -qO - "$XANMOD_KEY_URL" | gpg --dearmor --yes -o "$XANMOD_KEYRING" \
+      && chmod 0644 "$XANMOD_KEYRING"; then
       log_success "GPG密钥添加成功！"
   else
       log_error "GPG密钥添加失败！"
@@ -67,8 +98,10 @@ install_xanmod() {
   
   # 步骤3: 添加XanMod软件源
   log_step "添加XanMod软件源..."
-  if echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | tee /etc/apt/sources.list.d/xanmod-release.list > /dev/null; then
+  distribution_codename="$(get_distribution_codename)"
+  if echo "deb [signed-by=${XANMOD_KEYRING}] ${XANMOD_REPOSITORY_URL} ${distribution_codename} main" | tee "$XANMOD_SOURCE_LIST" > /dev/null; then
       log_success "软件源添加成功！"
+      log_info "已配置XanMod软件源代号: ${distribution_codename}"
   else
       log_error "软件源添加失败！"
       exit 1
@@ -85,7 +118,7 @@ install_xanmod() {
   
   # 步骤5: 安装XanMod内核
   log_step "安装XanMod内核（x64v3版本）..."
-  if apt install -y linux-xanmod-x64v3; then
+  if apt install -y "$XANMOD_KERNEL_PACKAGE"; then
       log_success "XanMod内核安装完成！"
   else
       log_error "XanMod内核安装失败！"
