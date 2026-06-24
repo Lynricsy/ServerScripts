@@ -16,6 +16,7 @@ readonly XANMOD_KEY_URL="https://dl.xanmod.org/archive.key"
 readonly XANMOD_KEYRING="/etc/apt/keyrings/xanmod-archive-keyring.gpg"
 readonly XANMOD_SOURCE_LIST="/etc/apt/sources.list.d/xanmod-release.list"
 readonly XANMOD_REPOSITORY_URL="http://deb.xanmod.org"
+readonly XANMOD_REPOSITORY_COMPONENTS="main non-free"
 readonly XANMOD_KERNEL_PACKAGE="linux-xanmod-x64v3"
 
 # 日志函数
@@ -99,9 +100,10 @@ install_xanmod() {
   # 步骤3: 添加XanMod软件源
   log_step "添加XanMod软件源..."
   distribution_codename="$(get_distribution_codename)"
-  if echo "deb [signed-by=${XANMOD_KEYRING}] ${XANMOD_REPOSITORY_URL} ${distribution_codename} main" | tee "$XANMOD_SOURCE_LIST" > /dev/null; then
+  if echo "deb [signed-by=${XANMOD_KEYRING}] ${XANMOD_REPOSITORY_URL} ${distribution_codename} ${XANMOD_REPOSITORY_COMPONENTS}" | tee "$XANMOD_SOURCE_LIST" > /dev/null; then
       log_success "软件源添加成功！"
       log_info "已配置XanMod软件源代号: ${distribution_codename}"
+      log_info "已启用XanMod软件源组件: ${XANMOD_REPOSITORY_COMPONENTS}"
   else
       log_error "软件源添加失败！"
       exit 1
